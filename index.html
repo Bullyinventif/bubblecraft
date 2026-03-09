@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>BubbleCraft</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:100%; height:100%; overflow:hidden; background:#000; }
+
+  canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    image-rendering: pixelated;
+  }
+
+  #ui {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 52px;
+    pointer-events: none;
+  }
+
+  #bubble-logo {
+    position: absolute;
+    top: 14px; left: 16px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    pointer-events: all;
+    text-decoration: none;
+    letter-spacing: 1px;
+    user-select: none;
+    filter: drop-shadow(1px 2px 0 rgba(0,0,0,0.6));
+    transition: transform 0.1s;
+  }
+  #bubble-logo:hover { transform: scale(1.06); }
+  #bubble-logo .l-B  { color: #3a8fff; }
+  #bubble-logo .l-u  { color: #2a7a2a; }
+  #bubble-logo .l-b2 { color: #ffd700; }
+  #bubble-logo .l-b3 { color: #a8e4f0; }
+  #bubble-logo .l-l  { color: #ff6600; }
+  #bubble-logo .l-e  { color: #d0d0d0; }
+  #bubble-logo .l-inc{ color: #111; text-shadow: 0 0 2px #fff; }
+
+  #title-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    animation: titleDrop 0.7s cubic-bezier(0.22,1,0.36,1) both;
+  }
+  @keyframes titleDrop {
+    from { transform: translateY(-60px); opacity:0; }
+    to   { transform: translateY(0);     opacity:1; }
+  }
+  #title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(28px, 6vw, 72px);
+    color: #fff;
+    text-shadow:
+      4px 4px 0 #2a6e00,
+      8px 8px 0 #1a4400,
+      0 0 40px rgba(100,220,50,0.4),
+      0 0 80px rgba(100,220,50,0.2);
+    letter-spacing: 2px;
+    line-height: 1.2;
+  }
+  #subtitle {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(8px, 1.5vw, 14px);
+    color: #ffd700;
+    text-shadow: 2px 2px 0 #8a6000;
+    letter-spacing: 3px;
+    animation: blink 1.4s step-end infinite;
+  }
+  @keyframes blink {
+    0%, 100% { opacity:1; }
+    50%       { opacity:0; }
+  }
+
+  #btn-wrap {
+    pointer-events: all;
+    animation: fadeUp 0.7s 0.3s cubic-bezier(0.22,1,0.36,1) both;
+  }
+  @keyframes fadeUp {
+    from { transform: translateY(30px); opacity:0; }
+    to   { transform: translateY(0);    opacity:1; }
+  }
+  #start-btn {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(10px, 2vw, 16px);
+    color: #fff;
+    background: #5a9e32;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    padding: 20px 48px;
+    letter-spacing: 2px;
+    box-shadow:
+      inset -4px -4px 0 #2a5c10,
+      inset 4px 4px 0 #8dd44a,
+      0 6px 0 #1a3c08,
+      0 8px 24px rgba(0,0,0,0.5);
+    transition: transform 0.08s, box-shadow 0.08s, background 0.08s;
+  }
+  #start-btn:hover {
+    background: #6bbf3a;
+    box-shadow:
+      inset -4px -4px 0 #2a5c10,
+      inset 4px 4px 0 #a0e855,
+      0 6px 0 #1a3c08,
+      0 10px 32px rgba(90,200,50,0.45);
+    transform: translateY(-3px);
+  }
+  #start-btn:active {
+    transform: translateY(4px);
+    box-shadow:
+      inset -4px -4px 0 #2a5c10,
+      inset 4px 4px 0 #8dd44a,
+      0 2px 0 #1a3c08;
+  }
+
+  #version {
+    position: absolute;
+    bottom: 12px; right: 16px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: rgba(255,255,255,0.3);
+  }
+</style>
+</head>
+<body>
+
+<canvas id="bg"></canvas>
+
+<a id="bubble-logo" href="https://bubbleinc.example.com" target="_blank">
+  <span class="l-B">B</span><span class="l-u">u</span><span class="l-b2">b</span><span class="l-b3">b</span><span class="l-l">l</span><span class="l-e">e</span>&nbsp;<span class="l-inc">inc.</span>
+</a>
+
+<div id="ui">
+  <div id="title-wrap">
+    <div id="title">BubbleCraft</div>
+    <div id="subtitle">★ EDITION 2D ★</div>
+  </div>
+  <div id="btn-wrap">
+    <button id="start-btn" onclick="startGame()">&#9654; COMMENCER</button>
+  </div>
+</div>
+
+<div id="version">v1.0</div>
+
+<script>
+const canvas = document.getElementById('bg');
+const ctx    = canvas.getContext('2d');
+let W, H;
+
+let seed = 42837;
+function rng() {
+  seed = (seed * 1664525 + 1013904223) & 0xffffffff;
+  return (seed >>> 0) / 0xffffffff;
+}
+
+const BS = 28;
+
+// 0=air 1=herbe 2=terre 3=pierre 4=bois 5=feuilles 6=sable 7=pierre sombre 8=pierre claire
+const COLS = {
+  grass:'#5a9e32',   gdark:'#2a5c10',
+  dirt:'#8B5E3C',    ddark:'#5c3a1e',
+  stone:'#808080',   sdark:'#555',
+  wood:'#8B6914',    wdark:'#5c4000',
+  leaves:'#2d7a1e',  ldark:'#1a4a0a',
+  sand:'#e2c97e',    sadark:'#b09040',
+  stone2:'#5c5c5c',  stone2dark:'#3a3a3a',
+  stone3:'#a0a0a0',  stone3dark:'#787878',
+};
+
+let MAP_W, MAP_H, MAP, heights;
+
+function buildWorld() {
+  MAP_W = Math.ceil(W / BS) + 2;
+  MAP_H = Math.ceil(H / BS) + 1;
+  seed  = 42837;
+
+  MAP = Array.from({length:MAP_H}, () => new Uint8Array(MAP_W));
+
+  const sandStart = Math.floor(MAP_W * 2 / 3);
+
+  heights = [];
+  let h = Math.floor(MAP_H * 0.55);
+  for (let x = 0; x < MAP_W; x++) {
+    h += (rng()-0.5)*2;
+    const minH = Math.floor(MAP_H * 0.45);
+    const maxH = Math.floor(MAP_H * 0.65);
+    h = Math.max(minH, Math.min(maxH, h));
+    heights.push(Math.floor(h));
+  }
+
+  for (let x = 0; x < MAP_W; x++) {
+    const s = heights[x];
+    const isSand = x >= sandStart;
+
+    MAP[s][x] = isSand ? 6 : 1;
+    for (let y = s+1; y <= Math.min(s+3, MAP_H-1); y++) MAP[y][x] = 2;
+    for (let y = s+4; y < MAP_H; y++) {
+      const depth = y - s;
+      const r = rng();
+      // 2 variantes de pierre au lieu de minerais
+      if      (depth > 8  && r < 0.12) MAP[y][x] = 7; // pierre sombre
+      else if (depth > 4  && r < 0.10) MAP[y][x] = 8; // pierre claire
+      else                              MAP[y][x] = 3; // pierre normale
+    }
+
+    // Arbres dans la zone herbe
+    if (!isSand && MAP[s][x]===1 && rng()<0.07 && x>3 && x<MAP_W-3) {
+      const th = 3 + Math.floor(rng()*2);
+      for (let t=1; t<=th; t++) setB(x, s-t, 4);
+      for (let lx=-2; lx<=2; lx++)
+        for (let ly=-2; ly<=0; ly++)
+          if (getB(x+lx, s-th+ly)===0) setB(x+lx, s-th+ly, 5);
+    }
+  }
+}
+
+function getB(x,y){ if(x<0||y<0||x>=MAP_W||y>=MAP_H) return 3; return MAP[y][x]; }
+function setB(x,y,id){ if(x<0||y<0||x>=MAP_W||y>=MAP_H) return; MAP[y][x]=id; }
+
+function drawBlock(sx, sy, type) {
+  let main, dark;
+  if      (type===1){ main=COLS.grass;  dark=COLS.gdark;     }
+  else if (type===2){ main=COLS.dirt;   dark=COLS.ddark;     }
+  else if (type===3){ main=COLS.stone;  dark=COLS.sdark;     }
+  else if (type===4){ main=COLS.wood;   dark=COLS.wdark;     }
+  else if (type===5){ main=COLS.leaves; dark=COLS.ldark;     }
+  else if (type===6){ main=COLS.sand;   dark=COLS.sadark;    }
+  else if (type===7){ main=COLS.stone2; dark=COLS.stone2dark;}
+  else if (type===8){ main=COLS.stone3; dark=COLS.stone3dark;}
+  else return;
+
+  ctx.fillStyle = main;
+  ctx.fillRect(sx, sy, BS, BS);
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.fillRect(sx, sy+BS-3, BS, 3);
+  ctx.fillRect(sx+BS-3, sy, 3, BS);
+  ctx.fillStyle = 'rgba(255,255,255,0.1)';
+  ctx.fillRect(sx, sy, BS, 3);
+  ctx.fillRect(sx, sy, 3, BS);
+}
+
+function drawScene() {
+  if (!W || !MAP) return;
+
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0, '#3a9de0');
+  grad.addColorStop(1, '#c0e8ff');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  const offY = H - MAP_H * BS;
+  ctx.save();
+  ctx.translate(0, offY);
+
+  for (let y = 0; y < MAP_H; y++)
+    for (let x = 0; x < MAP_W; x++) {
+      const b = MAP[y][x];
+      if (b) drawBlock(x*BS, y*BS, b);
+    }
+
+  // Joueur pixel art
+  const playerX = Math.floor(MAP_W * 0.12);
+  const px = playerX * BS;
+  const py = (heights[playerX] - 1) * BS - 28;
+  ctx.fillStyle = '#f0c080'; ctx.fillRect(px+3, py,    16, 13);
+  ctx.fillStyle = '#333';    ctx.fillRect(px+6, py+4,   3,  3);
+                             ctx.fillRect(px+12,py+4,   3,  3);
+  ctx.fillStyle = '#3a7ad9'; ctx.fillRect(px+1, py+13, 20, 15);
+
+  ctx.restore();
+}
+
+function resize() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  buildWorld();
+  drawScene();
+}
+window.addEventListener('resize', resize);
+
+function startGame() {
+  document.body.style.transition = 'opacity 0.5s';
+  document.body.style.opacity = '0';
+  setTimeout(() => { window.location.href = 'world_1.html'; }, 500);
+}
+
+resize();
+</script>
+</body>
+</html>
