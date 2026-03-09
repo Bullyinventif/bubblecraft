@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>BubbleCraft - Fight Mode</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:100%; height:100%; overflow:hidden; background:#1a0e00; }
+  canvas { display:block; width:100%; height:100%; image-rendering:pixelated; cursor:crosshair; }
+
+  #hud { position:absolute; top:0; left:0; right:0; bottom:0; pointer-events:none; }
+
+  /* Mode selector */
+  #mode-box {
+    position:absolute; top:12px; left:12px;
+    display:flex; background:rgba(0,0,0,0.55);
+    border:2px solid #555; border-radius:6px; overflow:hidden; pointer-events:all;
+  }
+  .mode-btn {
+    padding:7px 14px; font-family:monospace; font-size:12px; font-weight:bold;
+    color:#aaa; background:transparent; border:none; cursor:pointer;
+    transition:background 0.15s, color 0.15s; letter-spacing:1px;
+  }
+  .mode-btn.active-normal   { background:#1a2a3a; color:#42b8ff; }
+  .mode-btn.active-hardcore { background:#3a0a0a; color:#ff4242; }
+  .mode-btn:hover:not(.active-normal):not(.active-hardcore) { background:rgba(255,255,255,0.08); color:#fff; }
+
+  /* Bouton accueil */
+  #home-btn {
+    position:absolute; top:12px; right:12px;
+    padding:7px 14px; font-family:monospace; font-size:12px; font-weight:bold;
+    color:#7eff9a; background:rgba(0,0,0,0.55); border:2px solid #3a7a50;
+    border-radius:6px; cursor:pointer; pointer-events:all; letter-spacing:1px;
+    transition:background 0.15s;
+  }
+  #home-btn:hover { background:rgba(0,80,30,0.6); }
+
+  /* Barre de vie + kills — haut centre */
+  #health-wrap {
+    position:absolute; top:14px; left:50%; transform:translateX(-50%);
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    pointer-events:none;
+  }
+  #health-label { font-family:monospace; font-size:11px; color:#fff; text-shadow:1px 1px #000; letter-spacing:1px; }
+  #health-bar-bg { width:200px; height:16px; background:#333; border:2px solid #666; border-radius:3px; overflow:hidden; }
+  #health-bar { height:100%; width:100%; background:#2ecc40; transition:width 0.1s; }
+  #kill-counter { font-family:monospace; font-size:10px; color:#ffd700; text-shadow:1px 1px #000; letter-spacing:1px; }
+
+  /* Hotbar */
+  #hotbar {
+    position:absolute; bottom:14px; left:50%; transform:translateX(-50%);
+    display:flex; gap:5px; background:rgba(0,0,0,0.6);
+    padding:6px; border:2px solid #555; border-radius:6px; pointer-events:all;
+  }
+  .slot {
+    width:46px; height:46px; border:2px solid #666; border-radius:3px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; position:relative; background:rgba(30,30,30,0.7);
+  }
+  .slot.active { border-color:#fff; background:rgba(255,255,255,0.08); }
+  .slot-inner { width:30px; height:30px; border:1px solid rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center; }
+  .slot-count { position:absolute; bottom:2px; right:4px; font-family:monospace; font-size:10px; color:#fff; text-shadow:1px 1px #000; }
+
+  #hint {
+    position:absolute; bottom:72px; left:50%; transform:translateX(-50%);
+    color:rgba(255,255,255,0.35); font-family:monospace; font-size:10px; white-space:nowrap;
+  }
+
+  /* Game Over */
+  #gameover {
+    display:none; position:absolute; top:0; left:0; right:0; bottom:0;
+    background:rgba(0,0,0,0.82); flex-direction:column; align-items:center; justify-content:center;
+    gap:28px; pointer-events:all;
+  }
+  #gameover.show { display:flex; }
+  #gameover h1 { font-family:monospace; font-size:clamp(32px,6vw,64px); color:#e03030; text-shadow:3px 3px 0 #700, 0 0 30px #f00; letter-spacing:4px; }
+  #gameover p { font-family:monospace; font-size:14px; color:#aaa; }
+  #go-kills { font-family:monospace; font-size:13px; color:#ffd700; }
+  #btn-home {
+    font-family:monospace; font-size:14px; font-weight:bold; color:#fff; background:#5a9e32;
+    border:none; padding:14px 36px; cursor:pointer; letter-spacing:2px;
+    box-shadow:inset -3px -3px 0 #2a5c10, inset 3px 3px 0 #8dd44a, 0 4px 0 #1a3c08;
+    transition:transform 0.08s;
+  }
+  #btn-home:hover { transform:translateY(-2px); }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div id="mode-box">
+    <button class="mode-btn active-normal"   id="btn-normal"   onclick="setMode('normal')">⚔ NORMAL</button>
+    <button class="mode-btn"                 id="btn-hardcore" onclick="setMode('hardcore')">💀 HARDCORE</button>
+  </div>
+
+  <button id="home-btn" onclick="goHome()">⌂ ACCUEIL</button>
+
+  <div id="health-wrap">
+    <div id="health-label">❤ VIE</div>
+    <div id="health-bar-bg"><div id="health-bar"></div></div>
+    <div id="kill-counter">☠ 0 zombie tué</div>
+  </div>
+
+  <div id="hotbar"></div>
+  <div id="hint">← → Marcher &nbsp;|&nbsp; ESPACE Sauter &nbsp;|&nbsp; [1] Clic G Miner bloc / Clic D Placer &nbsp;|&nbsp; [2] Clic G Attaquer</div>
+</div>
+
+<div id="gameover">
+  <h1>GAME OVER</h1>
+  <p>Tu as été submergé par les zombies...</p>
+  <div id="go-kills">☠ 0 zombie tué</div>
+  <button id="btn-home" onclick="goHome()">⌂ RETOUR AU MENU</button>
+</div>
+
+<script>
+// ── Canvas ───────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+let IW = window.innerWidth;
+let IH = window.innerHeight;
+canvas.width = IW;
+canvas.height = IH;
+
+window.addEventListener('resize', () => {
+  IW = window.innerWidth; IH = window.innerHeight;
+  canvas.width = IW; canvas.height = IH;
+  const gY = groundY();
+  if (P.y + P.h > gY) P.y = gY - P.h;
+  zombies.forEach(z => { if (z.y + z.h > gY) z.y = gY - z.h; });
+});
+
+const BS = 32;
+
+// ── Fonctions sol ─────────────────────────────────────────────
+function groundY() { return IH - 5 * BS; }
+
+// ── Mode ──────────────────────────────────────────────────────
+let gameMode = 'normal';
+
+function setMode(m) {
+  gameMode = m;
+  document.getElementById('btn-normal').className   = 'mode-btn' + (m === 'normal'   ? ' active-normal'   : '');
+  document.getElementById('btn-hardcore').className = 'mode-btn' + (m === 'hardcore' ? ' active-hardcore' : '');
+  resetGame();
+}
+
+// ── Blocs placés par le joueur ───────────────────────────────
+const placedBlocks = []; // {x, y, w, h, hp}
+const BLOCK_SIZE = BS;
+const BLOCK_COLOR = '#8B6914';
+const BLOCK_DARK  = '#5c4000';
+
+function getBlockAt(wx, wy) {
+  return placedBlocks.find(b =>
+    wx >= b.x && wx < b.x + BLOCK_SIZE &&
+    wy >= b.y && wy < b.y + BLOCK_SIZE
+  );
+}
+
+function placeBlock(mx, my) {
+  // Convertir position souris en grille
+  const bx = Math.floor(mx / BLOCK_SIZE) * BLOCK_SIZE;
+  const by = Math.floor(my / BLOCK_SIZE) * BLOCK_SIZE;
+  // Pas sur le sol
+  if (by >= groundY()) return;
+  // Pas sur le joueur
+  if (bx < P.x + P.w && bx + BLOCK_SIZE > P.x && by < P.y + P.h && by + BLOCK_SIZE > P.y) return;
+  // Pas déjà un bloc là
+  if (getBlockAt(mx, my)) return;
+  if (P.woodCount <= 0) return;
+  placedBlocks.push({ x: bx, y: by, w: BLOCK_SIZE, h: BLOCK_SIZE, hp: 1, hitFlash: 0 });
+  P.woodCount--;
+  buildHotbar();
+}
+
+function mineBlock(mx, my) {
+  const idx = placedBlocks.findIndex(b =>
+    mx >= b.x && mx < b.x + BLOCK_SIZE &&
+    my >= b.y && my < b.y + BLOCK_SIZE
+  );
+  if (idx === -1) return;
+  placedBlocks[idx].hp--;
+  placedBlocks[idx].hitFlash = 6;
+  if (placedBlocks[idx].hp <= 0) {
+    placedBlocks.splice(idx, 1);
+    P.woodCount++;
+    buildHotbar();
+  }
+}
+
+// ── Troncs décor ──────────────────────────────────────────────
+const TRUNK_COLS = ['#2a1400','#3a2000','#1e0c00','#4a2e08','#160a00'];
+const TRUNKS = [];
+for (let x = -40; x < window.innerWidth + 100; x += 55 + Math.floor(Math.random() * 45)) {
+  TRUNKS.push({
+    x,
+    w: 36 + Math.floor(Math.random() * 26),
+    h: window.innerHeight * (0.5 + Math.random() * 0.45),
+    col: TRUNK_COLS[Math.floor(Math.random() * TRUNK_COLS.length)],
+  });
+}
+
+// ── Joueur ────────────────────────────────────────────────────
+const PW = 36, PH = 52;
+const P = {
+  x: 0, y: 0, vx: 0, vy: 0,
+  w: PW, h: PH,
+  onGround: false, facing: 1,
+  hp: 100, maxHp: 100,
+  slot: 0, woodCount: 10,
+  attackCooldown: 0, attackAnim: 0,
+  invincible: 0, dead: false,
+};
+
+// ── Zombies ───────────────────────────────────────────────────
+const ZW = 34, ZH = 50;
+const MAX_ZOMBIES = 5;
+const SPAWN_INTERVAL = 220;
+let zombies = [];
+let spawnTimer = 0;
+let killCount = 0;
+let gameOverShown = false;
+
+function spawnZombie() {
+  if (zombies.length >= MAX_ZOMBIES) return;
+  const bossCount = zombies.filter(z => z.isBoss).length;
+  const isBoss = bossCount === 0 && Math.random() < 0.1;
+  const normalHp = gameMode === 'hardcore' ? 2 : 1;
+  const bossHp   = gameMode === 'hardcore' ? 5 : 3;
+  const spawnRight = Math.random() < 0.7;
+  let sx;
+  if (spawnRight) {
+    sx = Math.min(IW - ZW - 10, P.x + 120 + Math.random() * IW * 0.4);
+  } else {
+    sx = Math.max(10, P.x - 120 - Math.random() * IW * 0.3);
+  }
+  zombies.push({
+    x: Math.max(10, Math.min(sx, IW - ZW - 10)),
+    y: groundY() - ZH,
+    vx: 0, vy: 0, w: ZW, h: ZH,
+    hp: isBoss ? bossHp : normalHp,
+    maxHp: isBoss ? bossHp : normalHp,
+    facing: -1, onGround: true,
+    isBoss, hitFlash: 0, dead: false,
+  });
+}
+
+function resetGame() {
+  killCount = 0;
+  gameOverShown = false;
+  document.getElementById('gameover').classList.remove('show');
+  document.getElementById('kill-counter').textContent = '☠ 0 zombie tué';
+  P.hp = P.maxHp; P.dead = false;
+  P.vx = 0; P.vy = 0;
+  P.x = IW * 0.12;
+  P.y = groundY() - P.h;
+  zombies = [];
+  spawnTimer = 0;
+  placedBlocks.length = 0;
+  spawnZombie(); spawnZombie(); spawnZombie();
+  updateHealthBar();
+}
+
+// Init
+resetGame();
+
+// ── Physique ──────────────────────────────────────────────────
+function collidesWithBlocks(e) {
+  for (const b of placedBlocks) {
+    if (e.x < b.x + b.w && e.x + e.w > b.x && e.y < b.y + b.h && e.y + e.h > b.y) {
+      return b;
+    }
+  }
+  return null;
+}
+
+function physicsStep(e) {
+  e.vy = Math.min(e.vy + 0.5, 15);
+
+  // X
+  e.x += e.vx;
+  for (const b of placedBlocks) {
+    if (e.x < b.x + b.w && e.x + e.w > b.x && e.y < b.y + b.h && e.y + e.h > b.y) {
+      if (e.vx > 0) e.x = b.x - e.w;
+      if (e.vx < 0) e.x = b.x + b.w;
+      e.vx = 0;
+    }
+  }
+
+  // Y
+  e.y += e.vy;
+  e.onGround = false;
+  for (const b of placedBlocks) {
+    if (e.x < b.x + b.w && e.x + e.w > b.x && e.y < b.y + b.h && e.y + e.h > b.y) {
+      if (e.vy > 0) { e.y = b.y - e.h; e.onGround = true; }
+      if (e.vy < 0) e.y = b.y + b.h;
+      e.vy = 0;
+    }
+  }
+
+  // Sol
+  const gY = groundY();
+  if (e.y + e.h >= gY) {
+    e.y = gY - e.h;
+    e.vy = 0;
+    e.onGround = true;
+  }
+  e.x = Math.max(0, Math.min(e.x, IW - e.w));
+}
+
+// ── Input ─────────────────────────────────────────────────────
+const keys = {};
+window.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'Digit1') { P.slot = 0; buildHotbar(); }
+  if (e.code === 'Digit2') { P.slot = 1; buildHotbar(); }
+});
+window.addEventListener('keyup', e => { keys[e.code] = false; });
+canvas.addEventListener('mousedown', e => {
+  if (P.slot === 1 && e.button === 0) doAttack();
+  if (P.slot === 0) {
+    if (e.button === 2) placeBlock(e.clientX, e.clientY);
+    if (e.button === 0) mineBlock(e.clientX, e.clientY);
+  }
+});
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+// ── Attaque ───────────────────────────────────────────────────
+const ATTACK_RANGE = 85;
+
+function doAttack() {
+  if (P.attackCooldown > 0 || P.dead) return;
+  P.attackCooldown = 25;
+  P.attackAnim = 12;
+
+  // Zone rectangulaire devant le joueur
+  const ax = P.facing > 0 ? P.x + P.w : P.x - ATTACK_RANGE;
+  const ay = P.y - 10;
+  const aw = ATTACK_RANGE;
+  const ah = P.h + 20;
+
+  let killed = 0;
+  zombies.forEach(z => {
+    const hit = z.x < ax + aw && z.x + z.w > ax && z.y < ay + ah && z.y + z.h > ay;
+    if (hit) {
+      z.hp--;
+      z.hitFlash = 10;
+      if (z.hp <= 0) { z.dead = true; killed++; }
+    }
+  });
+  zombies = zombies.filter(z => !z.dead);
+
+  if (killed > 0) {
+    killCount += killed;
+    document.getElementById('kill-counter').textContent =
+      '☠ ' + killCount + ' zombie' + (killCount > 1 ? 's' : '') + ' tué' + (killCount > 1 ? 's' : '');
+  }
+}
+
+// ── Update joueur ─────────────────────────────────────────────
+function updatePlayer() {
+  if (P.dead) return;
+
+  // Déplacement
+  if (keys['ArrowLeft'] || keys['KeyA'])       { P.vx = -3.8; P.facing = -1; }
+  else if (keys['ArrowRight'] || keys['KeyD']) { P.vx =  3.8; P.facing =  1; }
+  else P.vx *= 0.65;
+
+  // Saut : normal = haut, hardcore = petit saut
+  const jumpForce = gameMode === 'hardcore' ? -5 : -11;
+  if ((keys['Space'] || keys['ArrowUp'] || keys['KeyW']) && P.onGround) {
+    P.vy = jumpForce;
+    P.onGround = false;
+  }
+
+  physicsStep(P);
+
+  if (P.attackCooldown > 0) P.attackCooldown--;
+  if (P.attackAnim > 0)     P.attackAnim--;
+  if (P.invincible > 0)     P.invincible--;
+
+  // Dégâts : 3sec (180f) pour vider la vie, boss 2x plus rapide
+  if (P.invincible <= 0) {
+    for (const z of zombies) {
+      if (rectsOverlap(P, z)) {
+        const dmg = z.isBoss ? P.maxHp / 90 : P.maxHp / 180;
+        P.hp = Math.max(0, P.hp - dmg);
+        P.invincible = 1;
+        if (P.hp <= 0 && !P.dead) {
+          P.dead = true;
+          setTimeout(showGameOver, 500);
+        }
+        break;
+      }
+    }
+  }
+  updateHealthBar();
+}
+
+// ── Update zombies ────────────────────────────────────────────
+function updateZombies() {
+  spawnTimer++;
+  if (spawnTimer >= SPAWN_INTERVAL) { spawnZombie(); spawnTimer = 0; }
+
+  zombies = zombies.filter(z => !z.dead);
+  zombies.forEach(z => {
+    if (z.hitFlash > 0) z.hitFlash--;
+    if (P.dead) { z.vx = 0; return; }
+
+    const playerSpd = 3.8;
+    const normalSpd = gameMode === 'hardcore' ? 0.9 : 0.9;  // même vitesse dans les 2 modes
+    const bossSpd   = gameMode === 'hardcore' ? 1.1 : 1.3;  // boss légèrement plus lent en hardcore
+    const dx = (P.x + P.w / 2) - (z.x + z.w / 2);
+    z.vx = (dx > 0 ? 1 : -1) * (z.isBoss ? bossSpd : normalSpd);
+    z.facing = dx > 0 ? 1 : -1;
+    physicsStep(z);
+  });
+}
+
+function rectsOverlap(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+// ── Dessin fond ───────────────────────────────────────────────
+function drawBackground() {
+  ctx.fillStyle = '#1a0e00';
+  ctx.fillRect(0, 0, IW, IH);
+
+  TRUNKS.forEach(t => {
+    ctx.fillStyle = t.col;
+    ctx.fillRect(t.x, IH - t.h, t.w, t.h);
+    ctx.fillStyle = '#1e3a08';
+    ctx.fillRect(t.x - 10, IH - t.h, t.w + 20, 16);
+  });
+}
+
+// ── Dessin sol ────────────────────────────────────────────────
+function drawGround() {
+  const gY = groundY();
+
+  // Herbe
+  ctx.fillStyle = '#5a9e32';
+  ctx.fillRect(0, gY, IW, BS);
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.fillRect(0, gY + BS - 4, IW, 4);
+  ctx.fillStyle = 'rgba(255,255,255,0.1)';
+  ctx.fillRect(0, gY, IW, 4);
+
+  // Terre x2
+  ctx.fillStyle = '#8B5E3C'; ctx.fillRect(0, gY + BS,     IW, BS);
+  ctx.fillStyle = '#7a5030'; ctx.fillRect(0, gY + BS * 2, IW, BS);
+
+  // Gris indestructible x2
+  ctx.fillStyle = '#606060'; ctx.fillRect(0, gY + BS * 3, IW, BS);
+  ctx.fillStyle = '#555555'; ctx.fillRect(0, gY + BS * 4, IW, BS);
+
+  // Grille
+  ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 1;
+  for (let x = 0; x < IW; x += BS) {
+    for (let layer = 0; layer < 5; layer++) {
+      ctx.beginPath();
+      ctx.moveTo(x, gY + BS * layer);
+      ctx.lineTo(x, gY + BS * (layer + 1));
+      ctx.stroke();
+    }
+  }
+}
+
+// ── Dessin blocs placés ──────────────────────────────────────
+function drawPlacedBlocks() {
+  placedBlocks.forEach(b => {
+    if (b.hitFlash > 0) b.hitFlash--;
+    ctx.fillStyle = b.hitFlash > 0 ? '#ffcc44' : BLOCK_COLOR;
+    ctx.fillRect(b.x, b.y, BLOCK_SIZE, BLOCK_SIZE);
+    // Ombres pixel
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.fillRect(b.x, b.y + BLOCK_SIZE - 4, BLOCK_SIZE, 4);
+    ctx.fillRect(b.x + BLOCK_SIZE - 4, b.y, 4, BLOCK_SIZE);
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    ctx.fillRect(b.x, b.y, BLOCK_SIZE, 4);
+    ctx.fillRect(b.x, b.y, 4, BLOCK_SIZE);
+    // Indicateur HP (fissures)
+    if (b.hp < 3) {
+      ctx.fillStyle = 'rgba(0,0,0,' + (b.hp === 2 ? 0.25 : 0.5) + ')';
+      ctx.fillRect(b.x + 6,  b.y + 6,  4, 14);
+      ctx.fillRect(b.x + 14, b.y + 10, 4, 10);
+    }
+  });
+}
+
+// ── Dessin joueur ─────────────────────────────────────────────
+function drawPlayer() {
+  if (P.dead) return;
+  if (P.invincible > 0 && Math.floor(P.invincible / 3) % 2 === 0) return;
+
+  const px = Math.round(P.x);
+  const py = Math.round(P.y);
+
+  ctx.save();
+  if (P.facing < 0) { ctx.translate(px + P.w, py); ctx.scale(-1, 1); }
+  else ctx.translate(px, py);
+
+  // Tête beige
+  ctx.fillStyle = '#f0c080';
+  ctx.fillRect(0, 0, P.w, P.h / 2);
+  // Corps bleu
+  ctx.fillStyle = '#3a7ad9';
+  ctx.fillRect(0, P.h / 2, P.w, P.h / 2);
+
+  // Épée
+  if (P.slot === 1) {
+    const swing = P.attackAnim > 0 ? -Math.PI / 2.5 : -Math.PI / 10;
+    ctx.save();
+    ctx.translate(P.w, P.h / 4);
+    ctx.rotate(swing);
+    ctx.fillStyle = '#8B6914'; ctx.fillRect(0, -2, 7,  5);
+    ctx.fillStyle = '#cccccc'; ctx.fillRect(6, -2, 22, 5);
+    ctx.fillStyle = '#888';    ctx.fillRect(5, -6, 4,  12);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+// ── Dessin zombies ────────────────────────────────────────────
+function drawZombies() {
+  zombies.forEach(z => {
+    const zx  = Math.round(z.x);
+    const zy  = Math.round(z.y);
+    const hit = z.hitFlash > 0;
+
+    ctx.save();
+    if (z.facing < 0) { ctx.translate(zx + z.w, zy); ctx.scale(-1, 1); }
+    else ctx.translate(zx, zy);
+
+    // Tête verte
+    ctx.fillStyle = hit ? '#88ff88' : '#2d8a2d';
+    ctx.fillRect(0, 0, z.w, z.h / 2);
+    // Corps bleu foncé
+    ctx.fillStyle = hit ? '#5599ff' : '#1a3060';
+    ctx.fillRect(0, z.h / 2, z.w, z.h / 2);
+
+    ctx.restore();
+
+    // Barre de santé si maxHp > 1
+    if (z.maxHp > 1) {
+      const bw = 44;
+      const bx = zx + z.w / 2 - bw / 2;
+      const by = zy - 13;
+      ctx.fillStyle = '#222';
+      ctx.fillRect(bx, by, bw, 7);
+      const pct = z.hp / z.maxHp;
+      ctx.fillStyle = pct > 0.66 ? '#2ecc40' : pct > 0.33 ? '#ffdc00' : '#e03030';
+      ctx.fillRect(bx, by, bw * pct, 7);
+      ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
+      ctx.strokeRect(bx, by, bw, 7);
+      // Séparateurs
+      for (let p = 1; p < z.maxHp; p++) {
+        ctx.fillStyle = '#444';
+        ctx.fillRect(bx + bw * p / z.maxHp, by, 1, 7);
+      }
+    }
+  });
+}
+
+// ── Dessin zone attaque ───────────────────────────────────────
+function drawAttackZone() {
+  if (P.slot !== 1 || P.attackCooldown <= 0) return;
+  const ax = P.facing > 0 ? P.x + P.w : P.x - ATTACK_RANGE;
+  ctx.save();
+  ctx.globalAlpha = (P.attackCooldown / 25) * 0.25;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(ax, P.y - 10, ATTACK_RANGE, P.h + 20);
+  ctx.restore();
+}
+
+// ── HUD ───────────────────────────────────────────────────────
+function updateHealthBar() {
+  const bar = document.getElementById('health-bar');
+  const pct = Math.max(0, P.hp / P.maxHp);
+  bar.style.width = (pct * 100) + '%';
+  bar.style.background = pct > 0.6 ? '#2ecc40' : pct > 0.3 ? '#ffdc00' : '#e03030';
+}
+
+function buildHotbar() {
+  const div = document.getElementById('hotbar');
+  div.innerHTML = '';
+
+  // Slot bois
+  const s0 = document.createElement('div');
+  s0.className = 'slot' + (P.slot === 0 ? ' active' : '');
+  s0.onclick = () => { P.slot = 0; buildHotbar(); };
+  const i0 = document.createElement('div');
+  i0.className = 'slot-inner'; i0.style.background = '#8B6914';
+  const c0 = document.createElement('span');
+  c0.className = 'slot-count'; c0.textContent = P.woodCount;
+  s0.appendChild(i0); s0.appendChild(c0); div.appendChild(s0);
+
+  // Slot épée
+  const s1 = document.createElement('div');
+  s1.className = 'slot' + (P.slot === 1 ? ' active' : '');
+  s1.onclick = () => { P.slot = 1; buildHotbar(); };
+  const i1 = document.createElement('div');
+  i1.className = 'slot-inner';
+  i1.style.background = 'linear-gradient(135deg,#aaa,#ddd,#888)';
+  i1.style.fontSize = '18px'; i1.textContent = '⚔';
+  s1.appendChild(i1); div.appendChild(s1);
+}
+
+function showGameOver() {
+  if (gameOverShown) return;
+  gameOverShown = true;
+  const txt = '☠ ' + killCount + ' zombie' + (killCount > 1 ? 's' : '') + ' tué' + (killCount > 1 ? 's' : '');
+  document.getElementById('go-kills').textContent = txt;
+  document.getElementById('gameover').classList.add('show');
+}
+
+function goHome() {
+  document.body.style.transition = 'opacity 0.4s';
+  document.body.style.opacity = '0';
+  setTimeout(() => { window.location.href = 'index.html'; }, 400);
+}
+
+// ── Boucle ────────────────────────────────────────────────────
+function loop() {
+  updatePlayer();
+  updateZombies();
+  drawBackground();
+  drawGround();
+  drawPlacedBlocks();
+  drawAttackZone();
+  drawZombies();
+  drawPlayer();
+  requestAnimationFrame(loop);
+}
+
+buildHotbar();
+updateHealthBar();
+loop();
+</script>
+</body>
+</html>

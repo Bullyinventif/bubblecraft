@@ -134,6 +134,48 @@
     font-size: 8px;
     color: rgba(255,255,255,0.3);
   }
+
+  #btn-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  #fight-btn {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(8px, 1.4vw, 13px);
+    color: #ff6666;
+    background: #5a0a0a;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    padding: 20px 22px;
+    letter-spacing: 1px;
+    text-decoration: none;
+    display: inline-block;
+    box-shadow:
+      inset -4px -4px 0 #2a0000,
+      inset 4px 4px 0 #aa3333,
+      0 6px 0 #2a0000,
+      0 8px 24px rgba(0,0,0,0.5);
+    transition: transform 0.08s, box-shadow 0.08s, background 0.08s;
+  }
+  #fight-btn:hover {
+    background: #7a1010;
+    box-shadow:
+      inset -4px -4px 0 #2a0000,
+      inset 4px 4px 0 #cc4444,
+      0 6px 0 #2a0000,
+      0 10px 32px rgba(200,50,50,0.45);
+    transform: translateY(-3px);
+  }
+  #fight-btn:active {
+    transform: translateY(4px);
+    box-shadow:
+      inset -4px -4px 0 #2a0000,
+      inset 4px 4px 0 #aa3333,
+      0 2px 0 #2a0000;
+  }
 </style>
 </head>
 <body>
@@ -151,6 +193,7 @@
   </div>
   <div id="btn-wrap">
     <button id="start-btn" onclick="startGame()">&#9654; COMMENCER</button>
+    <a id="fight-btn" href="fight_mode.html">⚔️ COMBAT</a>
   </div>
 </div>
 
