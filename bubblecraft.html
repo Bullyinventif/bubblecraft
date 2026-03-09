@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Minecraft 2D</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:100%; height:100%; overflow:hidden; background:#000; }
+
+  #wrap {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+    image-rendering: pixelated;
+  }
+
+  /* ── HUD ── */
+  #hud {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+  }
+
+  /* Mode selector — haut gauche */
+  #mode-box {
+    position: absolute;
+    top: 12px; left: 12px;
+    display: flex;
+    background: rgba(0,0,0,0.55);
+    border: 2px solid #555;
+    border-radius: 6px;
+    overflow: hidden;
+    pointer-events: all;
+  }
+  .mode-btn {
+    padding: 7px 14px;
+    font-family: monospace;
+    font-size: 12px;
+    font-weight: bold;
+    color: #aaa;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    letter-spacing: 1px;
+  }
+  .mode-btn.active-survie  { background: #3a1a00; color: #ff8c42; }
+  .mode-btn.active-creatif { background: #0a2a4a; color: #42b8ff; }
+  .mode-btn:hover:not(.active-survie):not(.active-creatif) { background: rgba(255,255,255,0.08); color:#fff; }
+
+  /* Regen — haut droite */
+  #regen-btn {
+    position: absolute;
+    top: 12px; right: 12px;
+    padding: 7px 14px;
+    font-family: monospace;
+    font-size: 12px;
+    font-weight: bold;
+    color: #7eff9a;
+    background: rgba(0,0,0,0.55);
+    border: 2px solid #3a7a50;
+    border-radius: 6px;
+    cursor: pointer;
+    pointer-events: all;
+    letter-spacing: 1px;
+    transition: background 0.15s;
+  }
+  #regen-btn:hover { background: rgba(0,80,30,0.6); }
+
+  /* Hotbar — bas centre */
+  #hotbar {
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 5px;
+    background: rgba(0,0,0,0.6);
+    padding: 6px;
+    border: 2px solid #555;
+    border-radius: 6px;
+    pointer-events: all;
+  }
+  .slot {
+    width: 46px; height: 46px;
+    border: 2px solid #666;
+    border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; position: relative;
+    background: rgba(30,30,30,0.7);
+    transition: border-color 0.1s;
+  }
+  .slot:hover { border-color: #999; }
+  .slot.active { border-color: #fff; background: rgba(255,255,255,0.08); }
+  .slot-inner { width: 30px; height: 30px; border: 1px solid rgba(0,0,0,0.35); }
+  .slot-count {
+    position: absolute; bottom: 2px; right: 4px;
+    font-family: monospace; font-size: 10px;
+    color: #fff; text-shadow: 1px 1px #000;
+  }
+
+  /* Hint — bas centre au dessus hotbar */
+  #hint {
+    position: absolute;
+    bottom: 72px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255,255,255,0.35);
+    font-family: monospace;
+    font-size: 10px;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c"></canvas>
+
+  <div id="hud">
+    <!-- Mode -->
+    <div id="mode-box">
+      <button class="mode-btn active-survie" id="btn-survie"  onclick="setMode('survie')">⚔ SURVIE</button>
+      <button class="mode-btn"               id="btn-creatif" onclick="setMode('creatif')">🎨 CRÉATIF</button>
+    </div>
+
+    <!-- Regen -->
+    <button id="regen-btn" onclick="regenWorld()">↺ NOUVEAU MONDE</button>
+
+    <!-- Hotbar -->
+    <div id="hotbar"></div>
+
+    <!-- Hint -->
+    <div id="hint">← → Marcher &nbsp;|&nbsp; ESPACE Sauter &nbsp;|&nbsp; Clic G Miner &nbsp;|&nbsp; Clic D Placer &nbsp;|&nbsp; 1–7 Sélectionner</div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+
+// ── Résolution interne ──────────────────────────────────────────
+let IW = window.innerWidth;
+let IH = window.innerHeight;
+canvas.width  = IW;
+canvas.height = IH;
+
+window.addEventListener('resize', () => {
+  IW = window.innerWidth;
+  IH = window.innerHeight;
+  canvas.width  = IW;
+  canvas.height = IH;
+});
+
+// ── Constantes ─────────────────────────────────────────────────
+const BS = 32;
+const WW = 300;
+const WH = 60;
+
+const B = { AIR:0, GRASS:1, DIRT:2, STONE:3, WOOD:4, LEAVES:5, SAND:6, COAL:8 };
+
+const COLORS = { 1:'#5a9e32', 2:'#8B5E3C', 3:'#808080', 4:'#8B6914', 5:'#2d7a1e', 6:'#e2c97e', 8:'#4a4a4a' };
+const NAMES  = { 1:'Herbe',   2:'Terre',   3:'Pierre',  4:'Bois',    5:'Feuilles', 6:'Sable',  8:'Charbon' };
+const BTIME  = { 1:12, 2:12, 3:35, 4:22, 5:6, 6:10, 8:35 };
+
+// ── Monde ──────────────────────────────────────────────────────
+let world = [];
+
+function initWorld() {
+  world = Array.from({length:WH}, () => new Uint8Array(WW));
+  const heights = [];
+  let h = 24;
+  for (let x = 0; x < WW; x++) {
+    h += (Math.random()-0.5)*2.5;
+    h = Math.max(16, Math.min(32, h));
+    heights.push(Math.floor(h));
+  }
+  for (let x = 0; x < WW; x++) {
+    const s = heights[x];
+    world[WH-1][x] = B.STONE;
+    for (let y = s+4; y < WH-1; y++) world[y][x] = Math.random()<0.07 ? B.COAL : B.STONE;
+    for (let y = s+1; y <= s+3; y++) world[y][x] = B.DIRT;
+    world[s][x] = s > 27 ? B.SAND : B.GRASS;
+    if (world[s][x]===B.GRASS && Math.random()<0.06 && x>3 && x<WW-3) {
+      const th = 4+Math.floor(Math.random()*2);
+      for (let t=1;t<=th;t++) sb(x, s-t, B.WOOD);
+      for (let lx=-2;lx<=2;lx++)
+        for (let ly=-2;ly<=0;ly++)
+          if (gb(x+lx,s-th+ly)===B.AIR) sb(x+lx,s-th+ly,B.LEAVES);
+    }
+  }
+}
+
+function gb(x,y){ if(x<0||y<0||x>=WW||y>=WH) return B.STONE; return world[y][x]; }
+function sb(x,y,id){ if(x<0||y<0||x>=WW||y>=WH) return; world[y][x]=id; }
+
+// ── Joueur ─────────────────────────────────────────────────────
+const P = {
+  x:0, y:0, vx:0, vy:0, w:22, h:30,
+  onGround:false, facing:1,
+  inventory:{}, hotbar:[1,2,3,4,5,6,8], slot:0,
+};
+
+let mode = 'survie'; // 'survie' | 'creatif'
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('btn-survie').className  = 'mode-btn' + (m==='survie'  ? ' active-survie'  : '');
+  document.getElementById('btn-creatif').className = 'mode-btn' + (m==='creatif' ? ' active-creatif' : '');
+  buildHotbar();
+}
+
+function regenWorld() {
+  initWorld();
+  P.inventory = {};
+  spawnPlayer();
+  buildHotbar();
+}
+
+function spawnPlayer() {
+  for (let y=0; y<WH; y++) {
+    if (world[y][15] !== B.AIR) { P.y=(y-3)*BS; P.x=15*BS; P.vx=0; P.vy=0; break; }
+  }
+}
+
+function solid(bx,by) {
+  if(by>=WH) return true;
+  if(bx<0||bx>=WW||by<0) return false;
+  const b=world[by][bx];
+  return b!==B.AIR && b!==B.LEAVES;
+}
+
+function updatePlayer() {
+  const spd=3.5;
+  if(keys['ArrowLeft']||keys['KeyA']){ P.vx=-spd; P.facing=-1; }
+  else if(keys['ArrowRight']||keys['KeyD']){ P.vx=spd; P.facing=1; }
+  else P.vx*=0.6;
+
+  if((keys['Space']||keys['ArrowUp']||keys['KeyW'])&&P.onGround){ P.vy=-9.5; P.onGround=false; }
+  P.vy=Math.min(P.vy+0.45,14);
+
+  P.x+=P.vx;
+  const L=()=>Math.floor(P.x/BS);
+  const R=()=>Math.floor((P.x+P.w-1)/BS);
+  const T=()=>Math.floor(P.y/BS);
+  const Bo=()=>Math.floor((P.y+P.h-1)/BS);
+  for(let ry=T();ry<=Bo();ry++){
+    if(P.vx>0&&solid(R(),ry)){ P.x=R()*BS-P.w; P.vx=0; }
+    if(P.vx<0&&solid(L(),ry)){ P.x=(L()+1)*BS; P.vx=0; }
+  }
+  P.y+=P.vy; P.onGround=false;
+  for(let cx=L();cx<=R();cx++){
+    if(P.vy>0&&solid(cx,Bo())){ P.y=Bo()*BS-P.h; P.vy=0; P.onGround=true; }
+    if(P.vy<0&&solid(cx,T())){ P.y=(T()+1)*BS; P.vy=0; }
+  }
+  P.x=Math.max(0,Math.min(P.x,(WW-1)*BS));
+  if(P.y>WH*BS) spawnPlayer();
+}
+
+// ── Caméra ─────────────────────────────────────────────────────
+const cam={x:0,y:0};
+function updateCam(){
+  cam.x=P.x+P.w/2-IW/2;
+  cam.y=P.y+P.h/2-IH/2;
+  cam.x=Math.max(0,Math.min(cam.x,WW*BS-IW));
+  cam.y=Math.max(0,Math.min(cam.y,WH*BS-IH));
+}
+
+// ── Dessin ─────────────────────────────────────────────────────
+function drawWorld(){
+  ctx.fillStyle='#87ceeb';
+  ctx.fillRect(0,0,IW,IH);
+
+  const x0=Math.max(0,Math.floor(cam.x/BS)-1);
+  const x1=Math.min(WW,x0+Math.ceil(IW/BS)+3);
+  const y0=Math.max(0,Math.floor(cam.y/BS)-1);
+  const y1=Math.min(WH,y0+Math.ceil(IH/BS)+3);
+
+  for(let y=y0;y<y1;y++){
+    for(let x=x0;x<x1;x++){
+      const b=world[y][x]; if(!b) continue;
+      const sx=x*BS-cam.x, sy=y*BS-cam.y;
+      ctx.fillStyle=COLORS[b]||'#f0f';
+      ctx.fillRect(sx,sy,BS,BS);
+      ctx.fillStyle='rgba(0,0,0,0.2)';
+      ctx.fillRect(sx,sy+BS-3,BS,3);
+      ctx.fillRect(sx+BS-3,sy,3,BS);
+      ctx.fillStyle='rgba(255,255,255,0.12)';
+      ctx.fillRect(sx,sy,BS,3);
+      ctx.fillRect(sx,sy,3,BS);
+    }
+  }
+}
+
+function drawPlayer(){
+  const px=Math.round(P.x-cam.x);
+  const py=Math.round(P.y-cam.y);
+  ctx.save();
+  if(P.facing<0){ ctx.translate(px+P.w,py); ctx.scale(-1,1); }
+  else ctx.translate(px,py);
+  ctx.fillStyle='#f0c080'; ctx.fillRect(3,0,16,13);   // tête
+  ctx.fillStyle='#3a7ad9'; ctx.fillRect(1,13,P.w-2,P.h-13); // corps
+  ctx.restore();
+}
+
+function drawHover(){
+  if(mouse.wx<0||mouse.wy<0||mouse.wx>=WW||mouse.wy>=WH) return;
+  const sx=mouse.wx*BS-cam.x, sy=mouse.wy*BS-cam.y;
+  ctx.strokeStyle='rgba(255,255,255,0.55)';
+  ctx.lineWidth=1.5;
+  ctx.strokeRect(sx+0.5,sy+0.5,BS-1,BS-1);
+}
+
+function drawMineAnim(){
+  if(!mouseDown||mouseBtn!==0||!mineTarget) return;
+  const b=gb(mineTarget.x,mineTarget.y); if(!b) return;
+  const sx=mineTarget.x*BS-cam.x, sy=mineTarget.y*BS-cam.y;
+  const prog=mineTimer/(BTIME[b]||20);
+  ctx.fillStyle=`rgba(0,0,0,${prog*0.65})`;
+  ctx.fillRect(sx,sy,BS,BS);
+  ctx.strokeStyle='#fff'; ctx.lineWidth=2;
+  ctx.strokeRect(sx+1,sy+1,BS-2,BS-2);
+}
+
+// ── Souris ─────────────────────────────────────────────────────
+const mouse={wx:0,wy:0};
+let mineTimer=0,mineTarget=null,mouseBtn=-1,mouseDown=false;
+
+canvas.addEventListener('mousemove',e=>{
+  mouse.wx=Math.floor((e.clientX+cam.x)/BS);
+  mouse.wy=Math.floor((e.clientY+cam.y)/BS);
+});
+canvas.addEventListener('mousedown',e=>{
+  e.preventDefault(); mouseDown=true; mouseBtn=e.button;
+  mineTimer=0; mineTarget={x:mouse.wx,y:mouse.wy};
+  if(e.button===2) doPlace();
+});
+canvas.addEventListener('mouseup',()=>{ mouseDown=false; mineTimer=0; mineTarget=null; });
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+
+function doMine(){
+  const b=gb(mouse.wx,mouse.wy); if(!b) return;
+  if(!mineTarget||mineTarget.x!==mouse.wx||mineTarget.y!==mouse.wy){
+    mineTimer=0; mineTarget={x:mouse.wx,y:mouse.wy}; return;
+  }
+  if(mode==='creatif'){ sb(mouse.wx,mouse.wy,B.AIR); mineTarget=null; mineTimer=0; return; }
+  mineTimer++;
+  if(mineTimer>=(BTIME[b]||20)){
+    sb(mouse.wx,mouse.wy,B.AIR);
+    P.inventory[b]=(P.inventory[b]||0)+1;
+    mineTimer=0; mineTarget=null;
+    buildHotbar();
+  }
+}
+
+function doPlace(){
+  const bid=P.hotbar[P.slot]; if(!bid) return;
+  if(gb(mouse.wx,mouse.wy)!==B.AIR) return;
+  if(mode==='survie'){
+    if(!P.inventory[bid]||P.inventory[bid]<=0) return;
+    P.inventory[bid]--;
+    buildHotbar();
+  }
+  sb(mouse.wx,mouse.wy,bid);
+}
+
+// ── Clavier ────────────────────────────────────────────────────
+const keys={};
+window.addEventListener('keydown',e=>{
+  keys[e.code]=true;
+  for(let i=1;i<=7;i++) if(e.code===`Digit${i}`){ P.slot=i-1; buildHotbar(); }
+});
+window.addEventListener('keyup',e=>{ keys[e.code]=false; });
+
+// ── Hotbar UI ──────────────────────────────────────────────────
+function buildHotbar(){
+  const div=document.getElementById('hotbar');
+  div.innerHTML='';
+  P.hotbar.forEach((bid,i)=>{
+    const slot=document.createElement('div');
+    slot.className='slot'+(i===P.slot?' active':'');
+    slot.title=NAMES[bid]||'';
+    slot.onclick=()=>{ P.slot=i; buildHotbar(); };
+    if(bid){
+      const inner=document.createElement('div');
+      inner.className='slot-inner';
+      inner.style.background=COLORS[bid]||'#888';
+      slot.appendChild(inner);
+      const span=document.createElement('span');
+      span.className='slot-count';
+      span.textContent = mode==='creatif' ? '∞' : (P.inventory[bid]||0);
+      slot.appendChild(span);
+    }
+    div.appendChild(slot);
+  });
+}
+
+// ── Boucle ─────────────────────────────────────────────────────
+function loop(){
+  if(mouseDown&&mouseBtn===0) doMine();
+  updatePlayer();
+  updateCam();
+  drawWorld();
+  drawHover();
+  drawMineAnim();
+  drawPlayer();
+  requestAnimationFrame(loop);
+}
+
+// ── Init ───────────────────────────────────────────────────────
+initWorld();
+spawnPlayer();
+buildHotbar();
+loop();
+</script>
+</body>
+</html>
