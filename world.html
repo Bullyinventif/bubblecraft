@@ -564,6 +564,7 @@ function buildHotbar(){
 // ── Boucle ─────────────────────────────────────────────────────
 function loop(){
   if(mouseDown&&mouseBtn===0) doMine();
+  if(mouseDown&&mouseBtn===2&&mode==='creatif') doPlace();
   updatePlayer();
   updateCam();
   drawWorld();
