@@ -176,6 +176,24 @@
       inset 4px 4px 0 #aa3333,
       0 2px 0 #2a0000;
   }
+
+  #world-menu button{
+    font-family:'Press Start 2P', monospace;
+    padding:10px 15px;
+    cursor:pointer;
+    background:#5a9e32;
+    color:white;
+    border:none;
+  }
+
+  #world-menu button:hover{
+    background:#6bbf3a;
+  }
+
+  #seed-input{
+    font-family:'Press Start 2P', monospace;
+  }
+
 </style>
 </head>
 <body>
@@ -199,6 +217,59 @@
     <button id="start-btn" onclick="startGame()">&#9654; COMMENCER</button>
     <a id="fight-btn" href="fight_mode.html">⚔️ COMBAT</a>
   </div>
+</div>
+
+<div id="world-menu" style="
+display:none;
+position:absolute;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+background:#3a2a1a;
+border:4px solid #5a9e32;
+padding:25px;
+border-radius:10px;
+z-index:1000;
+font-family:'Press Start 2P', monospace;
+text-align:center;
+">
+
+<h3 style="color:white;margin-bottom:20px;">
+🌍 MONDES
+</h3>
+
+<button id="new-world-btn">
+Nouveau monde
+</button>
+
+<br><br>
+
+<input
+id="seed-input"
+placeholder="Seed"
+style="
+padding:10px;
+width:200px;
+text-align:center;
+">
+
+<button id="seed-start-btn">
+➜
+</button>
+
+<br><br>
+
+<button id="load-save-btn">
+Ouvrir sauvegarde
+</button>
+
+<input
+type="file"
+id="save-file"
+accept=".bcraft,.json"
+style="display:none;"
+>
+
 </div>
 
 <div id="version">v1.0</div>
@@ -340,21 +411,56 @@ function resize() {
 window.addEventListener('resize', resize);
 
 function startGame() {
-  let seed = prompt("Seed du monde (laisser vide = aléatoire)");
-
-  if (!seed || seed.trim() === "") {
-    seed = Date.now().toString();
-  }
-
-  localStorage.setItem("bubblecraft_seed", seed);
-
-  document.body.style.transition = 'opacity 0.5s';
-  document.body.style.opacity = '0';
-
-  setTimeout(() => {
-    window.location.href = 'world.html';
-  }, 500);
+  document.getElementById("world-menu").style.display = "block";
 }
+
+document.getElementById("new-world-btn").onclick = () => {
+
+  localStorage.setItem(
+    "bubblecraft_seed",
+    Date.now().toString()
+  );
+
+  window.location.href = "world.html";
+};
+
+document.getElementById("seed-start-btn").onclick = () => {
+
+  const seed =
+    document.getElementById("seed-input").value.trim();
+
+  localStorage.setItem(
+    "bubblecraft_seed",
+    seed || Date.now().toString()
+  );
+
+  window.location.href = "world.html";
+};
+
+document.getElementById("load-save-btn").onclick = () => {
+  document.getElementById("save-file").click();
+};
+
+document.getElementById("save-file").addEventListener("change",(e)=>{
+
+  const file = e.target.files[0];
+
+  if(!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = () => {
+
+    localStorage.setItem(
+      "bubblecraft_save",
+      reader.result
+    );
+
+    window.location.href = "world.html";
+  };
+
+  reader.readAsText(file);
+});
 
 resize();
 </script>

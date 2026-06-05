@@ -124,10 +124,9 @@
   }
   
   #home-btn {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
+  position: static;
+  padding: 5px 12px;
+  transform: none;
   background: rgba(0,0,0,0.55);
   border: 2px solid #555;
   border-radius: 6px;
@@ -135,8 +134,40 @@
   padding: 5px 12px;
   text-decoration: none;
   transition: background 0.15s;
-}
-#home-btn:hover { background: rgba(255,255,255,0.1); }
+  }
+  
+  #home-btn:hover { background: rgba(255,255,255,0.1); }
+
+  #top-bar{
+    position:absolute;
+    top:12px;
+    left:50%;
+    transform:translateX(-50%);
+    display:flex;
+    align-items:center;
+    gap:8px;
+    pointer-events:all;
+  }
+
+  #import-btn,
+  #home-btn,
+  #seed-display{
+    background:rgba(0,0,0,0.55);
+    border:2px solid #555;
+    border-radius:6px;
+    color:white;
+    font-family:monospace;
+  }
+
+  #import-btn{
+    padding:6px 12px;
+    cursor:pointer;
+  }
+
+  #seed-display{
+    padding:8px 12px;
+    font-weight:bold;
+  }
 </style>
 </head>
 <body>
@@ -155,8 +186,25 @@
       <button class="mode-btn"               id="btn-creatif" onclick="setMode('creatif')">🎨 CRÉATIF</button>
     </div>
 
-    <!-- Accueil -->
-    <a href="index.html" id="home-btn">🏠</a>
+    <!-- Import + Accueil + Seed -->
+    <div id="top-bar">
+
+      <button id="import-btn">↥</button>
+
+      <a href="index.html" id="home-btn">🏠</a>
+
+      <div id="seed-display">
+        SEED : ...
+      </div>
+
+      <input
+        type="file"
+        id="save-file"
+        accept=".bcraft,.json"
+        style="display:none;"
+      >
+
+    </div>
 
     <!-- Regen -->
     <button id="regen-btn" onclick="regenWorld()">↺ NOUVEAU MONDE</button>
@@ -512,6 +560,8 @@ if (!loadGame()) {
   spawnPlayer();
 }
 buildHotbar();
+document.getElementById("seed-display").textContent =
+"SEED : " + worldSeed;
 loop();
 
 setInterval(saveGame, 30000);
@@ -519,6 +569,10 @@ window.addEventListener(
   "beforeunload", 
   saveGame
 );
+
+document.getElementById("import-btn").onclick = () => {
+  document.getElementById("save-file").click();
+};
 </script>
 </body>
 </html>
