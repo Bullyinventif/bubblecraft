@@ -266,7 +266,7 @@ Ouvrir sauvegarde
 <input
 type="file"
 id="save-file"
-accept=".bcraft,.json"
+accept=".bbworld,.bworld,.bcraft,.json"
 style="display:none;"
 >
 
@@ -439,6 +439,8 @@ document.getElementById("seed-start-btn").onclick = () => {
     seed || Math.floor(10000 + Math.random() * 90000).toString()
   );
 
+  localStorage.removeItem("bubblecraft_save");
+
   window.location.href = "world.html";
 };
 
@@ -455,11 +457,39 @@ document.getElementById("save-file").addEventListener("change",(e)=>{
   const reader = new FileReader();
 
   reader.onload = () => {
+    let save;
+
+    try {
+      save = JSON.parse(reader.result);
+    } catch {
+      alert("Sauvegarde BubbleCraft invalide.");
+      e.target.value = "";
+      return;
+    }
+
+    if(
+      !save ||
+      !Array.isArray(save.world) ||
+      save.world.length !== 60 ||
+      !save.world.every(row => Array.isArray(row) && row.length === 300) ||
+      !save.player
+    ) {
+      alert("Sauvegarde BubbleCraft invalide.");
+      e.target.value = "";
+      return;
+    }
 
     localStorage.setItem(
       "bubblecraft_save",
       reader.result
     );
+
+    if(save.seed) {
+      localStorage.setItem(
+        "bubblecraft_seed",
+        String(save.seed)
+      );
+    }
 
     window.location.href = "world.html";
   };

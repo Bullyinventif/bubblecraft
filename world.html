@@ -205,7 +205,7 @@
       <input
         type="file"
         id="save-file"
-        accept=".bcraft,.json"
+        accept=".bbworld,.bworld,.bcraft,.json"
         style="display:none;"
       >
 
@@ -268,7 +268,7 @@ const COLORS = { 1:'#5a9e32', 2:'#8B5E3C', 3:'#808080', 4:'#8B6914', 5:'#2d7a1e'
 const NAMES  = { 1:'Herbe',   2:'Terre',   3:'Pierre',  4:'Bois',    5:'Feuilles', 6:'Sable',  8:'Charbon' };
 const BTIME  = { 1:12, 2:12, 3:35, 4:22, 5:6, 6:10, 8:35 };
 
-const worldSeed =
+let worldSeed =
 localStorage.getItem("bubblecraft_seed") || "12345";
 
 function seedRandom(seed) {
@@ -360,6 +360,40 @@ function saveGame() {
   );
 }
 
+function parseSave(raw) {
+  let save;
+
+  try {
+    save = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+
+  if (!save || !Array.isArray(save.world) || save.world.length !== WH) {
+    return null;
+  }
+
+  const loadedWorld = [];
+
+  for (const row of save.world) {
+    if (!Array.isArray(row) || row.length !== WW) return null;
+    loadedWorld.push(Uint8Array.from(row));
+  }
+
+  const px = Number(save.player && save.player.x);
+  const py = Number(save.player && save.player.y);
+
+  return {
+    seed: String(save.seed || worldSeed || "12345"),
+    player: {
+      x: Number.isFinite(px) ? px : 15 * BS,
+      y: Number.isFinite(py) ? py : 0
+    },
+    inventory: save.inventory && typeof save.inventory === "object" ? save.inventory : {},
+    world: loadedWorld
+  };
+}
+
 function loadGame() {
   
   const raw = 
@@ -367,16 +401,22 @@ function loadGame() {
   
     if (!raw) return false;
   
-    const save = JSON.parse(raw);
+    const save = parseSave(raw);
+
+    if (!save) {
+      localStorage.removeItem("bubblecraft_save");
+      return false;
+    }
   
     worldSeed = save.seed;
+    localStorage.setItem("bubblecraft_seed", worldSeed);
   
-    world = save.world.map(
-        row => Uint8Array.from(row)
-    );
+    world = save.world;
   
     P.x = save.player.x;
   P.y = save.player.y;
+  P.vx = 0;
+  P.vy = 0;
   
   P.inventory = save.inventory || {};
   
@@ -594,6 +634,31 @@ document.getElementById("import-btn").onclick = () => {
   document.getElementById("save-file").click();
 };
 
+document.getElementById("save-file").addEventListener("change",(e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = () => {
+    const save = parseSave(reader.result);
+
+    if(!save) {
+      alert("Sauvegarde BubbleCraft invalide.");
+      e.target.value = "";
+      return;
+    }
+
+    localStorage.setItem("bubblecraft_save", reader.result);
+    loadGame();
+    buildHotbar();
+    document.getElementById("seed-display").textContent = "SEED : " + worldSeed;
+    e.target.value = "";
+  };
+
+  reader.readAsText(file);
+});
+
 function exportSave() {
 
   const save = {
@@ -620,7 +685,7 @@ function exportSave() {
 
   a.href = URL.createObjectURL(blob);
 
-  a.download = "BubbleCraftSave.bcraft";
+  a.download = "BubbleCraftSave.bbworld";
 
   a.click();
 }
