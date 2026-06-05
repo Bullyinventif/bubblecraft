@@ -170,6 +170,9 @@
 </div>
 
 <script>
+let worldSeed = 
+localStorage.getItem("bubblecraft_seed") || "default";
+
 const canvas = document.getElementById('c');
 const ctx    = canvas.getContext('2d');
 
@@ -185,6 +188,24 @@ window.addEventListener('resize', () => {
   canvas.width  = IW;
   canvas.height = IH;
 });
+
+// ── Générateur pseudo-aléatoire ────────────────────────────────
+function seedRandom(seed) {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return function() {
+    h += h << 13;
+    h ^= h >>> 7;
+    h += h << 3;
+    h ^= h >>> 17;
+    h += h << 5;
+    return (h >>> 0) / 4294967295;
+  };
+}
+const rng = seedRandom(worldSeed);
 
 // ── Constantes ─────────────────────────────────────────────────
 const BS = 32;
@@ -205,18 +226,18 @@ function initWorld() {
   const heights = [];
   let h = 24;
   for (let x = 0; x < WW; x++) {
-    h += (Math.random()-0.5)*2.5;
+    h += (rng()-0.5)*2.5;
     h = Math.max(16, Math.min(32, h));
     heights.push(Math.floor(h));
   }
   for (let x = 0; x < WW; x++) {
     const s = heights[x];
     world[WH-1][x] = B.STONE;
-    for (let y = s+4; y < WH-1; y++) world[y][x] = Math.random()<0.07 ? B.COAL : B.STONE;
+    for (let y = s+4; y < WH-1; y++) world[y][x] = rng()<0.07 ? B.COAL : B.STONE;
     for (let y = s+1; y <= s+3; y++) world[y][x] = B.DIRT;
     world[s][x] = s > 27 ? B.SAND : B.GRASS;
-    if (world[s][x]===B.GRASS && Math.random()<0.06 && x>3 && x<WW-3) {
-      const th = 4+Math.floor(Math.random()*2);
+    if (world[s][x]===B.GRASS && rng()<0.06 && x>3 && x<WW-3) {
+      const th = 4+Math.floor(rng()*2);
       for (let t=1;t<=th;t++) sb(x, s-t, B.WOOD);
       for (let lx=-2;lx<=2;lx++)
         for (let ly=-2;ly<=0;ly++)
@@ -249,6 +270,50 @@ function regenWorld() {
   P.inventory = {};
   spawnPlayer();
   buildHotbar();
+}
+
+function saveGame() {
+
+  const save = {
+    seed: worldSeed,
+
+    player: {
+      x: P.x,
+      y: P.y
+    },
+
+    inventory: P.inventory,
+
+    world: world.map(row => Array.from(row))
+  };
+
+  localStorage.setItem(
+    "bubblecraft_save",
+    JSON.stringify(save)
+  );
+}
+
+function loadGame() {
+  
+  const raw = 
+    localStorage.getItem("bubblecraft_save");
+  
+    if (!raw) return false;
+  
+    const save = JSON.parse(raw);
+  
+    worldSeed = save.seed;
+  
+    world = save.world.map(
+        row => Uint8Array.from(row)
+    );
+  
+    P.x = save.player.x;
+  P.y = save.player.y;
+  
+  P.inventory = save.inventory || {};
+  
+  return true;
 }
 
 function spawnPlayer() {
@@ -442,10 +507,18 @@ function loop(){
 }
 
 // ── Init ───────────────────────────────────────────────────────
-initWorld();
-spawnPlayer();
+if (!loadGame()) {
+  initWorld();
+  spawnPlayer();
+}
 buildHotbar();
 loop();
+
+setInterval(saveGame, 30000);
+window.addEventListener(
+  "beforeunload", 
+  saveGame
+);
 </script>
 </body>
 </html>

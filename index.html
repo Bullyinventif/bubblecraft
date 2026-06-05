@@ -340,9 +340,20 @@ function resize() {
 window.addEventListener('resize', resize);
 
 function startGame() {
+  let seed = prompt("Seed du monde (laisser vide = aléatoire)");
+
+  if (!seed || seed.trim() === "") {
+    seed = Date.now().toString();
+  }
+
+  localStorage.setItem("bubblecraft_seed", seed);
+
   document.body.style.transition = 'opacity 0.5s';
   document.body.style.opacity = '0';
-  setTimeout(() => { window.location.href = 'world.html'; }, 500);
+
+  setTimeout(() => {
+    window.location.href = 'world.html';
+  }, 500);
 }
 
 resize();
