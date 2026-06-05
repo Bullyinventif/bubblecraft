@@ -416,10 +416,15 @@ function startGame() {
 
 document.getElementById("new-world-btn").onclick = () => {
 
+  const newSeed = 
+    Math.floor(10000 + Math.random() * 90000).toString();
+
   localStorage.setItem(
     "bubblecraft_seed",
-    Date.now().toString()
+    newSeed
   );
+
+  localStorage.removeItem("bubblecraft_save");
 
   window.location.href = "world.html";
 };
@@ -431,7 +436,7 @@ document.getElementById("seed-start-btn").onclick = () => {
 
   localStorage.setItem(
     "bubblecraft_seed",
-    seed || Date.now().toString()
+    seed || Math.floor(10000 + Math.random() * 90000).toString()
   );
 
   window.location.href = "world.html";

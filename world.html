@@ -149,6 +149,10 @@
     pointer-events:all;
   }
 
+  #export-btn{
+    padding:6px 12px;
+    cursor:pointer;
+  }
   #import-btn,
   #home-btn,
   #seed-display{
@@ -189,6 +193,7 @@
     <!-- Import + Accueil + Seed -->
     <div id="top-bar">
 
+      <button id="export-btn">↧</button>
       <button id="import-btn">↥</button>
 
       <a href="index.html" id="home-btn">🏠</a>
@@ -218,8 +223,6 @@
 </div>
 
 <script>
-let worldSeed = 
-localStorage.getItem("bubblecraft_seed") || "default";
 
 const canvas = document.getElementById('c');
 const ctx    = canvas.getContext('2d');
@@ -253,7 +256,6 @@ function seedRandom(seed) {
     return (h >>> 0) / 4294967295;
   };
 }
-const rng = seedRandom(worldSeed);
 
 // ── Constantes ─────────────────────────────────────────────────
 const BS = 32;
@@ -266,10 +268,27 @@ const COLORS = { 1:'#5a9e32', 2:'#8B5E3C', 3:'#808080', 4:'#8B6914', 5:'#2d7a1e'
 const NAMES  = { 1:'Herbe',   2:'Terre',   3:'Pierre',  4:'Bois',    5:'Feuilles', 6:'Sable',  8:'Charbon' };
 const BTIME  = { 1:12, 2:12, 3:35, 4:22, 5:6, 6:10, 8:35 };
 
+const worldSeed =
+localStorage.getItem("bubblecraft_seed") || "12345";
+
+function seedRandom(seed) {
+  let h = 0;
+
+  for (let i = 0; i < seed.length; i++) {
+    h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+
+  return function() {
+    h = (h * 1664525 + 1013904223) >>> 0;
+    return h / 4294967296;
+  };
+}
+
 // ── Monde ──────────────────────────────────────────────────────
 let world = [];
 
 function initWorld() {
+  const rng = seedRandom(worldSeed);
   world = Array.from({length:WH}, () => new Uint8Array(WW));
   const heights = [];
   let h = 24;
@@ -573,6 +592,40 @@ window.addEventListener(
 document.getElementById("import-btn").onclick = () => {
   document.getElementById("save-file").click();
 };
+
+function exportSave() {
+
+  const save = {
+    seed: worldSeed,
+
+    player: {
+      x: P.x,
+      y: P.y
+    },
+
+    inventory: P.inventory,
+
+    world: world.map(
+      row => Array.from(row)
+    )
+  };
+
+  const blob = new Blob(
+    [JSON.stringify(save)],
+    {type:"application/json"}
+  );
+
+  const a = document.createElement("a");
+
+  a.href = URL.createObjectURL(blob);
+
+  a.download = "BubbleCraftSave.bcraft";
+
+  a.click();
+}
+
+document.getElementById("export-btn")
+.onclick = exportSave;
 </script>
 </body>
 </html>
