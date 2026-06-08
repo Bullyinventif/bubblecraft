@@ -2,175 +2,117 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Minecraft 2D</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 
-  #wrap {
-    position: relative;
-    width: 100vw;
-    height: 100vh;
-  }
+  #wrap { position:relative; width:100vw; height:100vh; }
 
-  canvas {
-    display: block;
-    width: 100%;
-    height: 100%;
-    cursor: crosshair;
-    image-rendering: pixelated;
-  }
+  canvas { display:block; width:100%; height:100%; cursor:crosshair; image-rendering:pixelated; }
 
-  #home-btn {
-  pointer-events: all;
-}
+  #home-btn { pointer-events:all; }
 
-  /* ── HUD ── */
-  #hud {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    pointer-events: none;
-  }
+  #hud { position:absolute; top:0; left:0; right:0; bottom:0; pointer-events:none; }
 
-  /* Mode selector — haut gauche */
   #mode-box {
-    position: absolute;
-    top: 12px; left: 12px;
-    display: flex;
-    background: rgba(0,0,0,0.55);
-    border: 2px solid #555;
-    border-radius: 6px;
-    overflow: hidden;
-    pointer-events: all;
+    position:absolute; top:12px; left:12px;
+    display:flex; background:rgba(0,0,0,0.55);
+    border:2px solid #555; border-radius:6px; overflow:hidden; pointer-events:all;
   }
   .mode-btn {
-    padding: 7px 14px;
-    font-family: monospace;
-    font-size: 12px;
-    font-weight: bold;
-    color: #aaa;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s;
-    letter-spacing: 1px;
+    padding:7px 14px; font-family:monospace; font-size:12px; font-weight:bold;
+    color:#aaa; background:transparent; border:none; cursor:pointer;
+    transition:background 0.15s, color 0.15s; letter-spacing:1px;
   }
-  .mode-btn.active-survie  { background: #3a1a00; color: #ff8c42; }
-  .mode-btn.active-creatif { background: #0a2a4a; color: #42b8ff; }
-  .mode-btn:hover:not(.active-survie):not(.active-creatif) { background: rgba(255,255,255,0.08); color:#fff; }
+  .mode-btn.active-survie  { background:#3a1a00; color:#ff8c42; }
+  .mode-btn.active-creatif { background:#0a2a4a; color:#42b8ff; }
+  .mode-btn:hover:not(.active-survie):not(.active-creatif) { background:rgba(255,255,255,0.08); color:#fff; }
 
-  /* Regen — haut droite */
   #regen-btn {
-    position: absolute;
-    top: 12px; right: 12px;
-    padding: 7px 14px;
-    font-family: monospace;
-    font-size: 12px;
-    font-weight: bold;
-    color: #7eff9a;
-    background: rgba(0,0,0,0.55);
-    border: 2px solid #3a7a50;
-    border-radius: 6px;
-    cursor: pointer;
-    pointer-events: all;
-    letter-spacing: 1px;
-    transition: background 0.15s;
+    position:absolute; top:12px; right:12px;
+    padding:7px 14px; font-family:monospace; font-size:12px; font-weight:bold;
+    color:#7eff9a; background:rgba(0,0,0,0.55); border:2px solid #3a7a50;
+    border-radius:6px; cursor:pointer; pointer-events:all; letter-spacing:1px;
+    transition:background 0.15s;
   }
-  #regen-btn:hover { background: rgba(0,80,30,0.6); }
+  #regen-btn:hover { background:rgba(0,80,30,0.6); }
 
-  /* Hotbar — bas centre */
   #hotbar {
-    position: absolute;
-    bottom: 14px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 5px;
-    background: rgba(0,0,0,0.6);
-    padding: 6px;
-    border: 2px solid #555;
-    border-radius: 6px;
-    pointer-events: all;
+    position:absolute; bottom:14px; left:50%; transform:translateX(-50%);
+    display:flex; gap:5px; background:rgba(0,0,0,0.6);
+    padding:6px; border:2px solid #555; border-radius:6px; pointer-events:all;
   }
   .slot {
-    width: 46px; height: 46px;
-    border: 2px solid #666;
-    border-radius: 3px;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; position: relative;
-    background: rgba(30,30,30,0.7);
-    transition: border-color 0.1s;
+    width:46px; height:46px; border:2px solid #666; border-radius:3px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; position:relative; background:rgba(30,30,30,0.7);
+    transition:border-color 0.1s;
   }
-  .slot:hover { border-color: #999; }
-  .slot.active { border-color: #fff; background: rgba(255,255,255,0.08); }
-  .slot-inner { width: 30px; height: 30px; border: 1px solid rgba(0,0,0,0.35); }
-  .slot-count {
-    position: absolute; bottom: 2px; right: 4px;
-    font-family: monospace; font-size: 10px;
-    color: #fff; text-shadow: 1px 1px #000;
-  }
+  .slot:hover { border-color:#999; }
+  .slot.active { border-color:#fff; background:rgba(255,255,255,0.08); }
+  .slot-inner { width:30px; height:30px; border:1px solid rgba(0,0,0,0.35); }
+  .slot-count { position:absolute; bottom:2px; right:4px; font-family:monospace; font-size:10px; color:#fff; text-shadow:1px 1px #000; }
 
-  /* Hint — bas centre au dessus hotbar */
   #hint {
-    position: absolute;
-    bottom: 72px;
-    left: 50%;
-    transform: translateX(-50%);
-    color: rgba(255,255,255,0.35);
-    font-family: monospace;
-    font-size: 10px;
-    white-space: nowrap;
-    pointer-events: none;
+    position:absolute; bottom:72px; left:50%; transform:translateX(-50%);
+    color:rgba(255,255,255,0.35); font-family:monospace; font-size:10px;
+    white-space:nowrap; pointer-events:none;
   }
-  
-  #home-btn {
-  position: static;
-  padding: 5px 12px;
-  transform: none;
-  background: rgba(0,0,0,0.55);
-  border: 2px solid #555;
-  border-radius: 6px;
-  font-size: 20px;
-  padding: 5px 12px;
-  text-decoration: none;
-  transition: background 0.15s;
-  }
-  
-  #home-btn:hover { background: rgba(255,255,255,0.1); }
 
-  #top-bar{
-    position:absolute;
-    top:12px;
-    left:50%;
-    transform:translateX(-50%);
-    display:flex;
-    align-items:center;
-    gap:8px;
+  #home-btn {
+    position:static; padding:5px 12px; transform:none;
+    background:rgba(0,0,0,0.55); border:2px solid #555; border-radius:6px;
+    font-size:20px; text-decoration:none; transition:background 0.15s;
+  }
+  #home-btn:hover { background:rgba(255,255,255,0.1); }
+
+  #top-bar {
+    position:absolute; top:12px; left:50%; transform:translateX(-50%);
+    display:flex; align-items:center; gap:8px; pointer-events:all;
+  }
+  #export-btn { padding:6px 12px; cursor:pointer; }
+  #import-btn, #home-btn, #seed-display {
+    background:rgba(0,0,0,0.55); border:2px solid #555;
+    border-radius:6px; color:white; font-family:monospace;
+  }
+  #import-btn { padding:6px 12px; cursor:pointer; }
+  #seed-display { padding:8px 12px; font-weight:bold; }
+
+  /* ── Contrôles mobiles ── */
+  #mobile-controls {
+    position:absolute; bottom:72px; left:0; right:0;
+    display:none; pointer-events:none; z-index:10;
+  }
+  #pad-left {
+    position:absolute; bottom:0; left:16px;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
     pointer-events:all;
   }
-
-  #export-btn{
-    padding:6px 12px;
-    cursor:pointer;
+  #pad-row { display:flex; gap:4px; }
+  .pad-btn {
+    width:52px; height:52px; background:rgba(0,0,0,0.5);
+    border:2px solid rgba(255,255,255,0.25); border-radius:10px;
+    color:white; font-size:20px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; user-select:none; -webkit-user-select:none;
+    touch-action:none;
   }
-  #import-btn,
-  #home-btn,
-  #seed-display{
-    background:rgba(0,0,0,0.55);
-    border:2px solid #555;
-    border-radius:6px;
-    color:white;
-    font-family:monospace;
+  .pad-btn.pressed { background:rgba(255,255,255,0.18); }
+  #pad-right {
+    position:absolute; bottom:0; right:16px;
+    display:flex; flex-direction:column; gap:4px; align-items:flex-end;
+    pointer-events:all;
   }
-
-  #import-btn{
-    padding:6px 12px;
-    cursor:pointer;
+  #btn-jump { background:rgba(80,160,40,0.7); border-color:#8dd44a; }
+  #slot-arrows {
+    position:absolute; bottom:0; left:50%; transform:translateX(-50%);
+    display:flex; gap:6px; pointer-events:all;
   }
-
-  #seed-display{
-    padding:8px 12px;
-    font-weight:bold;
+  @media (pointer:coarse) {
+    #mobile-controls { display:block; }
+    #hint { display:none; }
   }
 </style>
 </head>
@@ -184,76 +126,65 @@
   <canvas id="c"></canvas>
 
   <div id="hud">
-    <!-- Mode -->
     <div id="mode-box">
-      <button class="mode-btn active-survie" id="btn-survie"  onclick="setMode('survie')">⚔ SURVIE</button>
-      <button class="mode-btn"               id="btn-creatif" onclick="setMode('creatif')">🎨 CRÉATIF</button>
+      <button class="mode-btn active-survie" id="btn-survie"  onclick="setMode('survie')">⛏️</button>
+      <button class="mode-btn"               id="btn-creatif" onclick="setMode('creatif')">🎨</button>
     </div>
 
-    <!-- Import + Accueil + Seed -->
     <div id="top-bar">
-
       <button id="export-btn">↧</button>
       <button id="import-btn">↥</button>
-
       <a href="index.html" id="home-btn">🏠</a>
-
-      <div id="seed-display">
-        SEED : ...
-      </div>
-
-      <input
-        type="file"
-        id="save-file"
-        accept=".bbworld,.bworld,.bcraft,.json"
-        style="display:none;"
-      >
-
+      <div id="seed-display">SEED : ...</div>
+      <input type="file" id="save-file" accept=".bbworld,.bworld,.bcraft,.json" style="display:none;">
     </div>
 
-    <!-- Regen -->
     <button id="regen-btn" onclick="regenWorld()">↺ NOUVEAU MONDE</button>
-
-    <!-- Hotbar -->
     <div id="hotbar"></div>
-
-    <!-- Hint -->
     <div id="hint">← → Marcher &nbsp;|&nbsp; ESPACE Sauter &nbsp;|&nbsp; Clic G Miner &nbsp;|&nbsp; Clic D Placer &nbsp;|&nbsp; 1–7 Sélectionner</div>
+
+    <!-- Contrôles mobiles -->
+    <div id="mobile-controls">
+      <div id="pad-left">
+        <div id="pad-row">
+          <div class="pad-btn" id="btn-left">◀</div>
+          <div class="pad-btn" id="btn-right">▶</div>
+        </div>
+      </div>
+      <div id="slot-arrows">
+        <div class="pad-btn" id="btn-slot-prev">◁</div>
+        <div class="pad-btn" id="btn-slot-next">▷</div>
+      </div>
+      <div id="pad-right">
+        <div class="pad-btn" id="btn-jump">↑</div>
+      </div>
+    </div>
   </div>
 </div>
 
 <script>
-
 const canvas = document.getElementById('c');
 const ctx    = canvas.getContext('2d');
 
-// ── Résolution interne ──────────────────────────────────────────
 let IW = window.innerWidth;
 let IH = window.innerHeight;
 canvas.width  = IW;
 canvas.height = IH;
 
 window.addEventListener('resize', () => {
-  IW = window.innerWidth;
-  IH = window.innerHeight;
-  canvas.width  = IW;
-  canvas.height = IH;
+  IW = window.innerWidth; IH = window.innerHeight;
+  canvas.width = IW; canvas.height = IH;
 });
 
 // ── Générateur pseudo-aléatoire ────────────────────────────────
 function seedRandom(seed) {
-  let h = 2166136261;
+  let h = 0;
   for (let i = 0; i < seed.length; i++) {
-    h ^= seed.charCodeAt(i);
-    h = Math.imul(h, 16777619);
+    h = (h * 31 + seed.charCodeAt(i)) >>> 0;
   }
   return function() {
-    h += h << 13;
-    h ^= h >>> 7;
-    h += h << 3;
-    h ^= h >>> 17;
-    h += h << 5;
-    return (h >>> 0) / 4294967295;
+    h = (h * 1664525 + 1013904223) >>> 0;
+    return h / 4294967296;
   };
 }
 
@@ -263,26 +194,11 @@ const WW = 300;
 const WH = 60;
 
 const B = { AIR:0, GRASS:1, DIRT:2, STONE:3, WOOD:4, LEAVES:5, SAND:6, COAL:8 };
-
 const COLORS = { 1:'#5a9e32', 2:'#8B5E3C', 3:'#808080', 4:'#8B6914', 5:'#2d7a1e', 6:'#e2c97e', 8:'#4a4a4a' };
 const NAMES  = { 1:'Herbe',   2:'Terre',   3:'Pierre',  4:'Bois',    5:'Feuilles', 6:'Sable',  8:'Charbon' };
 const BTIME  = { 1:12, 2:12, 3:35, 4:22, 5:6, 6:10, 8:35 };
 
-let worldSeed =
-localStorage.getItem("bubblecraft_seed") || "12345";
-
-function seedRandom(seed) {
-  let h = 0;
-
-  for (let i = 0; i < seed.length; i++) {
-    h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  }
-
-  return function() {
-    h = (h * 1664525 + 1013904223) >>> 0;
-    return h / 4294967296;
-  };
-}
+let worldSeed = localStorage.getItem("bubblecraft_seed") || "12345";
 
 // ── Monde ──────────────────────────────────────────────────────
 let world = [];
@@ -323,7 +239,7 @@ const P = {
   inventory:{}, hotbar:[1,2,3,4,5,6,8], slot:0,
 };
 
-let mode = 'survie'; // 'survie' | 'creatif'
+let mode = 'survie';
 
 function setMode(m) {
   mode = m;
@@ -334,11 +250,8 @@ function setMode(m) {
 
 function generateNewSeed() {
   let newSeed;
-
-  do {
-    newSeed = Math.floor(10000 + Math.random() * 90000).toString();
-  } while (newSeed === worldSeed);
-
+  do { newSeed = Math.floor(10000 + Math.random() * 90000).toString(); }
+  while (newSeed === worldSeed);
   return newSeed;
 }
 
@@ -354,49 +267,26 @@ function regenWorld() {
 }
 
 function saveGame() {
-
   const save = {
     seed: worldSeed,
-
-    player: {
-      x: P.x,
-      y: P.y
-    },
-
+    player: { x: P.x, y: P.y },
     inventory: P.inventory,
-
     world: world.map(row => Array.from(row))
   };
-
-  localStorage.setItem(
-    "bubblecraft_save",
-    JSON.stringify(save)
-  );
+  localStorage.setItem("bubblecraft_save", JSON.stringify(save));
 }
 
 function parseSave(raw) {
   let save;
-
-  try {
-    save = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-
-  if (!save || !Array.isArray(save.world) || save.world.length !== WH) {
-    return null;
-  }
-
+  try { save = JSON.parse(raw); } catch { return null; }
+  if (!save || !Array.isArray(save.world) || save.world.length !== WH) return null;
   const loadedWorld = [];
-
   for (const row of save.world) {
     if (!Array.isArray(row) || row.length !== WW) return null;
     loadedWorld.push(Uint8Array.from(row));
   }
-
   const px = Number(save.player && save.player.x);
   const py = Number(save.player && save.player.y);
-
   return {
     seed: String(save.seed || worldSeed || "12345"),
     player: {
@@ -409,31 +299,15 @@ function parseSave(raw) {
 }
 
 function loadGame() {
-  
-  const raw = 
-    localStorage.getItem("bubblecraft_save");
-  
-    if (!raw) return false;
-  
-    const save = parseSave(raw);
-
-    if (!save) {
-      localStorage.removeItem("bubblecraft_save");
-      return false;
-    }
-  
-    worldSeed = save.seed;
-    localStorage.setItem("bubblecraft_seed", worldSeed);
-  
-    world = save.world;
-  
-    P.x = save.player.x;
-  P.y = save.player.y;
-  P.vx = 0;
-  P.vy = 0;
-  
+  const raw = localStorage.getItem("bubblecraft_save");
+  if (!raw) return false;
+  const save = parseSave(raw);
+  if (!save) { localStorage.removeItem("bubblecraft_save"); return false; }
+  worldSeed = save.seed;
+  localStorage.setItem("bubblecraft_seed", worldSeed);
+  world = save.world;
+  P.x = save.player.x; P.y = save.player.y; P.vx = 0; P.vy = 0;
   P.inventory = save.inventory || {};
-  
   return true;
 }
 
@@ -490,12 +364,10 @@ function updateCam(){
 function drawWorld(){
   ctx.fillStyle='#87ceeb';
   ctx.fillRect(0,0,IW,IH);
-
   const x0=Math.max(0,Math.floor(cam.x/BS)-1);
   const x1=Math.min(WW,x0+Math.ceil(IW/BS)+3);
   const y0=Math.max(0,Math.floor(cam.y/BS)-1);
   const y1=Math.min(WH,y0+Math.ceil(IH/BS)+3);
-
   for(let y=y0;y<y1;y++){
     for(let x=x0;x<x1;x++){
       const b=world[y][x]; if(!b) continue;
@@ -518,8 +390,8 @@ function drawPlayer(){
   ctx.save();
   if(P.facing<0){ ctx.translate(px+P.w,py); ctx.scale(-1,1); }
   else ctx.translate(px,py);
-  ctx.fillStyle='#f0c080'; ctx.fillRect(3,0,16,13);   // tête
-  ctx.fillStyle='#3a7ad9'; ctx.fillRect(1,13,P.w-2,P.h-13); // corps
+  ctx.fillStyle='#f0c080'; ctx.fillRect(3,0,16,13);
+  ctx.fillStyle='#3a7ad9'; ctx.fillRect(1,13,P.w-2,P.h-13);
   ctx.restore();
 }
 
@@ -592,6 +464,87 @@ window.addEventListener('keydown',e=>{
 });
 window.addEventListener('keyup',e=>{ keys[e.code]=false; });
 
+// ── Contrôles mobiles ──────────────────────────────────────────
+(function(){
+  function hold(id, keyCode, keyOff) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const on  = () => { keys[keyCode]=true;  if(keyOff) keys[keyOff]=false; el.classList.add('pressed'); };
+    const off = () => { keys[keyCode]=false; el.classList.remove('pressed'); };
+    el.addEventListener('touchstart', e=>{ e.preventDefault(); on(); }, {passive:false});
+    el.addEventListener('touchend',   e=>{ e.preventDefault(); off(); }, {passive:false});
+    el.addEventListener('mousedown', on);
+    el.addEventListener('mouseup', off);
+    el.addEventListener('mouseleave', off);
+  }
+  hold('btn-left',  'ArrowLeft',  'ArrowRight');
+  hold('btn-right', 'ArrowRight', 'ArrowLeft');
+  hold('btn-jump',  'Space', null);
+
+  // Slot prev/next
+  document.getElementById('btn-slot-prev').addEventListener('touchstart', e=>{
+    e.preventDefault(); P.slot=(P.slot-1+P.hotbar.length)%P.hotbar.length; buildHotbar();
+  }, {passive:false});
+  document.getElementById('btn-slot-next').addEventListener('touchstart', e=>{
+    e.preventDefault(); P.slot=(P.slot+1)%P.hotbar.length; buildHotbar();
+  }, {passive:false});
+  document.getElementById('btn-slot-prev').addEventListener('mousedown', ()=>{ P.slot=(P.slot-1+P.hotbar.length)%P.hotbar.length; buildHotbar(); });
+  document.getElementById('btn-slot-next').addEventListener('mousedown', ()=>{ P.slot=(P.slot+1)%P.hotbar.length; buildHotbar(); });
+
+  // Touch canvas : tap court = placer, maintenir 350ms = miner
+  let touchTimer = null;
+  let isMining = false;
+  let touchId = null;
+
+  canvas.addEventListener('touchstart', e=>{
+    e.preventDefault();
+    // Un seul doigt pour les actions bloc (ignorer si déjà un touch actif)
+    if (touchId !== null) return;
+    const t = e.changedTouches[0];
+    touchId = t.identifier;
+    mouse.wx = Math.floor((t.clientX+cam.x)/BS);
+    mouse.wy = Math.floor((t.clientY+cam.y)/BS);
+    isMining = false;
+
+    touchTimer = setTimeout(()=>{
+      isMining = true;
+      mouseDown=true; mouseBtn=0;
+      mineTarget={x:mouse.wx, y:mouse.wy}; mineTimer=0;
+    }, 350);
+  }, {passive:false});
+
+  canvas.addEventListener('touchmove', e=>{
+    e.preventDefault();
+    // Suivre uniquement le doigt actif
+    for (const t of e.changedTouches) {
+      if (t.identifier === touchId) {
+        mouse.wx = Math.floor((t.clientX+cam.x)/BS);
+        mouse.wy = Math.floor((t.clientY+cam.y)/BS);
+        // Si le doigt bouge beaucoup → annuler le minage en cours
+        if (isMining) { mineTarget={x:mouse.wx, y:mouse.wy}; mineTimer=0; }
+      }
+    }
+  }, {passive:false});
+
+  canvas.addEventListener('touchend', e=>{
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      if (t.identifier === touchId) {
+        clearTimeout(touchTimer);
+        if (!isMining) doPlace(); // tap court = placer
+        mouseDown=false; mineTimer=0; mineTarget=null;
+        isMining=false; touchId=null;
+      }
+    }
+  }, {passive:false});
+
+  canvas.addEventListener('touchcancel', e=>{
+    clearTimeout(touchTimer);
+    mouseDown=false; mineTimer=0; mineTarget=null;
+    isMining=false; touchId=null;
+  }, {passive:false});
+})();
+
 // ── Hotbar UI ──────────────────────────────────────────────────
 function buildHotbar(){
   const div=document.getElementById('hotbar');
@@ -629,83 +582,47 @@ function loop(){
 }
 
 // ── Init ───────────────────────────────────────────────────────
-if (!loadGame()) {
-  initWorld();
-  spawnPlayer();
-}
+if (!loadGame()) { initWorld(); spawnPlayer(); }
 buildHotbar();
-document.getElementById("seed-display").textContent =
-"SEED : " + worldSeed;
+document.getElementById("seed-display").textContent = "SEED : " + worldSeed;
 loop();
 
 setInterval(saveGame, 30000);
-window.addEventListener(
-  "beforeunload", 
-  saveGame
-);
+window.addEventListener("beforeunload", saveGame);
 
-document.getElementById("import-btn").onclick = () => {
-  document.getElementById("save-file").click();
-};
+document.getElementById("import-btn").onclick = () => document.getElementById("save-file").click();
 
-document.getElementById("save-file").addEventListener("change",(e)=>{
+document.getElementById("save-file").addEventListener("change", e=>{
   const file = e.target.files[0];
-  if(!file) return;
-
+  if (!file) return;
   const reader = new FileReader();
-
   reader.onload = () => {
     const save = parseSave(reader.result);
-
-    if(!save) {
-      alert("Sauvegarde BubbleCraft invalide.");
-      e.target.value = "";
-      return;
-    }
-
+    if (!save) { alert("Sauvegarde BubbleCraft invalide."); e.target.value=""; return; }
     localStorage.setItem("bubblecraft_save", reader.result);
     loadGame();
     buildHotbar();
     document.getElementById("seed-display").textContent = "SEED : " + worldSeed;
     e.target.value = "";
   };
-
   reader.readAsText(file);
 });
 
 function exportSave() {
-
   const save = {
     seed: worldSeed,
-
-    player: {
-      x: P.x,
-      y: P.y
-    },
-
+    player: { x: P.x, y: P.y },
     inventory: P.inventory,
-
-    world: world.map(
-      row => Array.from(row)
-    )
+    world: world.map(row => Array.from(row))
   };
-
-  const blob = new Blob(
-    [JSON.stringify(save)],
-    {type:"application/json"}
-  );
-
+  const blob = new Blob([JSON.stringify(save)], {type:"application/json"});
   const a = document.createElement("a");
-
   a.href = URL.createObjectURL(blob);
-
   a.download = "BubbleCraftSave.bbworld";
-
   a.click();
 }
 
-document.getElementById("export-btn")
-.onclick = exportSave;
+document.getElementById("export-btn").onclick = exportSave;
 </script>
 </body>
 </html>
