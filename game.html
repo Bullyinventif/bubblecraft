@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BlockCraft</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&display=swap">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#87ceeb; font-family:'Segoe UI',system-ui,sans-serif; }
+  #game { display:block; width:100%; height:100%; }
+
+  #crosshair { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%);
+    width:22px; height:22px; pointer-events:none; z-index:10; }
+  #crosshair::before, #crosshair::after { content:''; position:absolute;
+    background:rgba(255,255,255,.85); box-shadow:0 0 1px rgba(0,0,0,.7); }
+  #crosshair::before { left:50%; top:0; width:2px; height:100%; transform:translateX(-50%); }
+  #crosshair::after  { top:50%; left:0; height:2px; width:100%; transform:translateY(-50%); }
+
+  #hotbar { position:fixed; left:50%; bottom:18px; transform:translateX(-50%);
+    display:flex; gap:4px; padding:4px; background:rgba(0,0,0,.35);
+    border:2px solid rgba(0,0,0,.5); border-radius:6px; z-index:10; }
+  .slot { width:50px; height:50px; background:rgba(255,255,255,.12);
+    border:2px solid rgba(0,0,0,.4); border-radius:3px; position:relative;
+    display:flex; align-items:center; justify-content:center; }
+  .slot.sel { border-color:#fff; box-shadow:0 0 8px #fff; }
+  .slot canvas { width:38px; height:38px; image-rendering:pixelated; }
+  .slot .num { position:absolute; top:1px; left:3px; font-size:11px; color:#fff; text-shadow:1px 1px 1px #000; }
+  .slot .cnt { position:absolute; bottom:0px; right:3px; font-size:15px; font-weight:bold;
+    color:#fff; text-shadow:1px 1px 1px #000, -1px -1px 1px #000; }
+
+  #info { position:fixed; left:10px; top:10px; z-index:10; color:#fff;
+    font-size:13px; line-height:1.5; text-shadow:1px 1px 2px #000;
+    font-family:'Consolas',monospace; pointer-events:none; }
+
+  #stats { position:fixed; left:50%; bottom:84px; transform:translateX(-50%);
+    width:440px; display:flex; justify-content:space-between; z-index:10; pointer-events:none; }
+
+  #deathScreen { position:fixed; inset:0; z-index:30; display:flex; align-items:center;
+    justify-content:center; background:rgba(90,0,0,.55); }
+  #deathScreen .panel { text-align:center; color:#fff; display:flex; flex-direction:column; gap:20px; align-items:center; }
+  #deathScreen h1 { font-size:48px; letter-spacing:1px; text-shadow:3px 3px 0 #2a2a2a; font-family:'VT323',monospace; }
+
+  #overlay { position:fixed; inset:0; z-index:20; display:flex;
+    align-items:center; justify-content:center;
+    background:rgba(0,0,0,.62); cursor:pointer; }
+  #overlay .panel { display:flex; flex-direction:column; align-items:center; gap:14px;
+    text-align:center; color:#fff; }
+  #overlay h1 { font-size:38px; letter-spacing:1px; text-shadow:3px 3px 0 #2a2a2a; }
+  .btn { font-size:18px; padding:12px 26px; border-radius:6px; cursor:pointer;
+    border:3px solid #2f5e1d; background:#5a9e3a; color:#fff; text-shadow:1px 1px 0 #2f5e1d;
+    min-width:280px; }
+  .btn:hover { filter:brightness(1.1); }
+  .btn.grey { background:#666; border-color:#3a3a3a; text-shadow:1px 1px 0 #3a3a3a; }
+  .help { font-size:13px; line-height:1.8; opacity:.9; max-width:520px; margin-top:6px; }
+  .help b { color:#ffe27a; }
+  .hidden { display:none !important; }
+
+  /* Menu pause — style "pierre" façon Minecraft */
+  .pausePanel { display:flex; flex-direction:column; align-items:center; gap:12px; color:#fff; text-align:center;
+    font-family:'VT323','Consolas',monospace; padding:14px; width:min(440px,94vw); max-height:96vh; overflow:auto; }
+  .pausePanel h1 { font-size:46px; letter-spacing:2px; color:#fff;
+    text-shadow:3px 3px 0 #2a2a2a, 0 0 2px #000; font-weight:normal; }
+  .pauseBtns { display:flex; flex-direction:column; gap:8px; width:100%; }
+  .btnRow { display:flex; gap:8px; width:100%; }
+  .btnRow .btn { flex:1; }
+  .pausePanel .btn, .pausePanel .mini {
+    font-family:'VT323','Consolas',monospace; font-size:24px; font-weight:normal; line-height:1.1;
+    color:#e8e8e8; text-shadow:2px 2px 0 #1a1a1a; letter-spacing:.5px;
+    background:#7d7d7d var(--stone,none) center/44px; image-rendering:pixelated;
+    border:2px solid #000; border-radius:0; padding:8px 12px; min-width:0; width:100%; cursor:pointer;
+    box-shadow: inset 2px 2px 0 rgba(255,255,255,.30), inset -3px -3px 0 rgba(0,0,0,.45); }
+  .pausePanel .btn:hover, .pausePanel .mini:hover { filter:brightness(1.18); box-shadow: inset 0 0 0 2px #fff, inset 2px 2px 0 rgba(255,255,255,.30), inset -3px -3px 0 rgba(0,0,0,.45); }
+  .pausePanel .btn:active { box-shadow: inset -2px -2px 0 rgba(255,255,255,.18), inset 3px 3px 0 rgba(0,0,0,.45); }
+  #optPanel { width:100%; background:rgba(10,12,16,.72); border:2px solid #000; padding:12px 14px; text-align:left; }
+  #optPanel h3 { font-size:22px; color:#ffe27a; margin:12px 0 6px; font-weight:normal; }
+  #optPanel h3:first-child { margin-top:0; }
+  #optPanel label { display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:19px; margin:7px 0; }
+  #optPanel input[type=range] { flex:1; accent-color:#7d9e5a; }
+  #optPanel b { min-width:26px; text-align:right; color:#ffe27a; }
+  .modeBtns { display:flex; gap:7px; }
+  .btn.small { font-size:18px; padding:8px 4px; }
+  .pausePanel .btn.small.active { box-shadow: inset 0 0 0 2px #fff, inset 2px 2px 0 rgba(255,255,255,.30), inset -3px -3px 0 rgba(0,0,0,.45); background-color:#9a9a72; }
+  .pauseInfo { width:100%; font-size:19px; opacity:.95; text-align:left; display:flex; flex-direction:column; gap:4px; }
+  .pauseInfo b { color:#ffe27a; }
+  .mini { display:inline-block; width:auto !important; font-size:16px !important; padding:2px 10px !important; }
+  .pausePanel .help { font-size:17px; }
+
+  /* Inventaire */
+  #invScreen { position:fixed; inset:0; z-index:25; display:flex; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.45); }
+  .invRoot { display:flex; gap:22px; align-items:flex-start; position:relative; }
+  .ipanel, .cpanel { background:#2e333f; border:3px solid #11131a; border-radius:16px;
+    padding:26px 30px; position:relative; color:#fff; }
+  .ipanel h2, .cpanel h2 { font-size:34px; margin-bottom:20px; letter-spacing:1px; }
+  .soloRow { display:flex; gap:48px; align-items:flex-start; }
+  .storeGrid { display:grid; grid-template-columns:repeat(9,60px); gap:7px; }
+  .hotRow { display:grid; grid-template-columns:repeat(9,60px); gap:7px; margin-top:18px; }
+  .slot2 { width:60px; height:60px; border-radius:4px; position:relative; display:flex;
+    align-items:center; justify-content:center; cursor:pointer; }
+  .slot2.light { background:#c8c8c8; }
+  .slot2.dark { background:#9c9c9c; }
+  .slot2.dark.sel { outline:3px solid #fff; outline-offset:-3px; }
+  .slot2.tan { background:#d7ac79; border:2px solid #c2935f; width:60px; height:60px; }
+  .slot2.out { background:#6e4a29; border:2px solid #4d3219; width:66px; height:66px; }
+  .slot2 canvas { image-rendering:pixelated; }
+  .slot2 .cnt { position:absolute; bottom:-1px; right:3px; font-weight:bold; font-size:16px; color:#fff;
+    text-shadow:1px 1px 1px #000,-1px -1px 1px #000; pointer-events:none; }
+  .craftCol { display:flex; flex-direction:column; gap:18px; }
+  .craftArea { background:#b15a1c; border:5px solid #f2c200; border-radius:18px; padding:20px 26px;
+    display:flex; align-items:center; gap:20px; }
+  .cgrid { display:grid; gap:9px; }
+  .cArrow { font-size:28px; color:#1a1a1a; }
+  .recipeBook { background:#3a3f4b; border:2px solid #11131a; border-radius:12px; padding:10px 14px;
+    display:flex; align-items:center; gap:12px; align-self:center; }
+  .arrow { background:none; border:none; color:#3b82f6; font-size:32px; cursor:pointer; line-height:1; padding:0 4px; }
+  .arrow:hover { color:#60a5fa; }
+  .rbCard { display:flex; align-items:center; gap:9px; background:#4a505e; border:2px solid #11131a;
+    border-radius:8px; padding:9px 12px; cursor:pointer; }
+  .rbCard:hover { background:#555c6c; }
+  .rbRes { display:flex; align-items:center; gap:3px; } .rbRes span { font-weight:bold; }
+  .rbArrow { color:#7fb3ff; font-size:18px; }
+  .rbName { font-size:14px; opacity:.9; }
+  .rbMini { display:grid; gap:2px; }
+  .rbCell { width:22px; height:22px; background:#2e333f; border-radius:3px; display:flex; align-items:center; justify-content:center; }
+  .rbCell canvas { image-rendering:pixelated; }
+  #cursorItem { position:fixed; z-index:40; pointer-events:none; display:none; }
+  #cursorItem canvas { image-rendering:pixelated; width:40px; height:40px; }
+  #cursorItem .cnt { position:absolute; bottom:-2px; right:0; font-weight:bold; font-size:15px; color:#fff;
+    text-shadow:1px 1px 1px #000,-1px -1px 1px #000; }
+</style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="crosshair"></div>
+  <div id="hotbar"></div>
+  <div id="stats"><canvas id="health" width="200" height="20"></canvas><canvas id="food" width="200" height="20"></canvas></div>
+  <div id="info"></div>
+
+  <div id="deathScreen" class="hidden">
+    <div class="panel"><h1>Vous êtes mort !</h1><button class="btn" id="respawnBtn">Réapparaître</button></div>
+  </div>
+
+  <div id="overlay">
+    <div class="pausePanel">
+      <h1>⛏ <span id="wname">Monde</span></h1>
+      <div class="pauseBtns">
+        <button class="btn" id="resume">Reprendre</button>
+        <div class="btnRow">
+          <button class="btn" id="optBtn">Options</button>
+          <button class="btn" id="saveBtn">Sauver</button>
+        </div>
+        <div class="btnRow">
+          <button class="btn" id="dlWorld">⬇ Télécharger</button>
+          <button class="btn" id="quit">Quitter</button>
+        </div>
+      </div>
+      <div id="optPanel" class="hidden">
+        <h3>⚙ Réglages</h3>
+        <label>🔊 Sons <input type="checkbox" id="setSound"></label>
+        <label>Volume <input type="range" id="setVol" min="0" max="100"></label>
+        <label>🖱 Sensibilité <input type="range" id="setSens" min="1" max="40"></label>
+        <label>👁 Distance <input type="range" id="setRender" min="3" max="8"><b id="renderVal">5</b></label>
+        <label>🔭 Vision <input type="range" id="setFov" min="60" max="110"><b id="fovVal">75</b></label>
+        <h3>🎮 Mode de jeu</h3>
+        <div class="modeBtns">
+          <button class="btn small" id="modeSurv">🚶 Survie</button>
+          <button class="btn small" id="modeCrea">🕊 Créatif</button>
+          <button class="btn small" id="modeSpec">👻 Spectateur</button>
+        </div>
+        <h3>⚔ Difficulté</h3>
+        <div class="modeBtns">
+          <button class="btn small" id="diffPeace">🕊 Paisible</button>
+          <button class="btn small" id="diffNormal">⚔ Normal</button>
+        </div>
+        <h3>⏰ Heure</h3>
+        <div class="modeBtns">
+          <button class="btn small" id="timeMorning">🌅 Aube</button>
+          <button class="btn small" id="timeDay">☀ Jour</button>
+          <button class="btn small" id="timeNight">🌙 Nuit</button>
+        </div>
+      </div>
+      <div class="pauseInfo">
+        <div>🌱 Graine : <b id="seedVal">—</b> <button class="mini" id="copySeed">copier</button></div>
+        <div id="biomeVal">🧭 —</div>
+      </div>
+      <div class="help">
+        <b>ZQSD/WASD</b> bouger · <b>Souris</b> regarder · <b>Espace</b> sauter/voler<br>
+        <b>Clic G</b> miner/frapper · <b>Clic D</b> poser/ouvrir porte · <b>1-9/molette</b> bloc<br>
+        <b>E</b> inventaire · <b>F</b> créatif · <b>Maj</b> sprint · <b>Ctrl</b> sneak · <b>Échap</b> pause
+      </div>
+    </div>
+  </div>
+
+  <div id="invScreen" class="hidden"><div id="invRoot" class="invRoot"></div></div>
+  <div id="cursorItem"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="textures.js"></script>
+  <script src="blocks.js?v=29"></script>
+  <script src="game.js?v=29"></script>
+</body>
+</html>

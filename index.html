@@ -2,512 +2,287 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>BubbleCraft</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BlockCraft</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&display=swap">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-
   * { margin:0; padding:0; box-sizing:border-box; }
-  html, body { width:100%; height:100%; overflow:hidden; background:#000; }
+  html { height:100%; }
+  body {
+    min-height:100vh; display:flex; flex-direction:column; align-items:center;
+    padding:30px 16px 60px; font-family:'Segoe UI',system-ui,sans-serif; color:#fff;
+    background: linear-gradient(180deg,
+      #0d1117 0%,
+      #1a2a4a 18%,
+      #2a4a7a 34%,
+      #5a8abf 48%,
+      #87ceeb 54%,
+      #87ceeb 58%,
+      #5da831 58%,
+      #3d7820 62%,
+      #2a5214 100%) fixed;
+    position:relative; overflow-x:hidden;
+  }
 
-  canvas {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
+  /* étoiles */
+  body::before {
+    content:''; position:fixed; top:0; left:0; right:0; height:52%;
+    background-image:
+      radial-gradient(1px 1px at 12% 8%, rgba(255,255,255,.9) 0%, transparent 100%),
+      radial-gradient(1px 1px at 28% 14%, rgba(255,255,255,.7) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 44% 6%, rgba(255,255,255,.95) 0%, transparent 100%),
+      radial-gradient(1px 1px at 60% 18%, rgba(255,255,255,.8) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 74% 10%, rgba(255,255,255,.9) 0%, transparent 100%),
+      radial-gradient(1px 1px at 88% 22%, rgba(255,255,255,.7) 0%, transparent 100%),
+      radial-gradient(1px 1px at 18% 30%, rgba(255,255,255,.6) 0%, transparent 100%),
+      radial-gradient(1px 1px at 36% 26%, rgba(255,255,255,.8) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 52% 32%, rgba(255,255,255,.7) 0%, transparent 100%),
+      radial-gradient(1px 1px at 68% 28%, rgba(255,255,255,.9) 0%, transparent 100%),
+      radial-gradient(1px 1px at 84% 38%, rgba(255,255,255,.6) 0%, transparent 100%),
+      radial-gradient(1px 1px at 8% 42%, rgba(255,255,255,.7) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 92% 16%, rgba(255,255,255,.85) 0%, transparent 100%);
+    pointer-events:none; z-index:0;
+  }
+
+  /* lune */
+  body::after {
+    content:''; position:fixed; top:5%; right:8%;
+    width:38px; height:38px; border-radius:50%;
+    background:radial-gradient(circle at 35% 38%, #fffde8 0%, #f0e68c 50%, #d4c45a 100%);
+    box-shadow: 0 0 18px 6px rgba(255,248,150,.25);
+    pointer-events:none; z-index:0;
+  }
+
+  /* contenu au-dessus des pseudo-éléments */
+  .page { position:relative; z-index:1; width:100%; max-width:560px; display:flex; flex-direction:column; align-items:center; }
+
+  /* LOGO */
+  .logo { margin-top:14px; margin-bottom:4px; text-align:center; }
+  .logo h1 {
+    font-family:'VT323',monospace; font-size:88px; letter-spacing:4px;
+    color:#f0c830;
+    text-shadow:
+      4px 4px 0 #7a5c00,
+      -2px -2px 0 #3a2a00,
+      0 0 30px rgba(240,200,40,.35);
+    line-height:1;
+  }
+  .logo .sub {
+    font-family:'VT323',monospace; font-size:26px; color:#d4e8ff;
+    letter-spacing:1px; text-shadow:1px 1px 0 #0a1a2a; opacity:.9;
+    margin-top:-4px;
+  }
+  .logo .version { font-size:14px; opacity:.55; margin-top:4px; font-family:'Segoe UI',sans-serif; }
+
+  /* CARTES */
+  .card {
+    width:100%; background:rgba(12,16,22,.82); backdrop-filter:blur(4px);
+    border:3px solid rgba(0,0,0,.6); border-radius:8px; padding:22px 24px; margin-bottom:18px;
+    box-shadow:0 8px 24px rgba(0,0,0,.45);
+  }
+  .card h2 {
+    font-family:'VT323',monospace; font-size:30px; margin-bottom:16px;
+    color:#ffe27a; letter-spacing:1px; text-shadow:2px 2px 0 #3a2a00;
+  }
+
+  /* champs */
+  label { display:block; margin-bottom:14px; }
+  label span { display:block; margin-bottom:5px; font-size:13px; opacity:.8; }
+  input[type=text] {
+    width:100%; padding:10px 13px; font-size:15px; border-radius:4px;
+    border:2px solid #2d3a28; background:#0d1117; color:#d8e8c8;
+  }
+  input[type=text]:focus { outline:none; border-color:#5a9e3a; }
+
+  /* bouton principal (style pierre Minecraft) */
+  .mc-btn {
+    display:block; width:100%; padding:11px 16px; margin-top:4px;
+    font-family:'VT323',monospace; font-size:28px; letter-spacing:.5px; line-height:1.1;
+    color:#e8e8e8; text-shadow:2px 2px 0 #1a1a1a; cursor:pointer;
+    background:#7d7d7d var(--stone,none) center/44px; image-rendering:pixelated;
+    border:3px solid #000; border-radius:0;
+    box-shadow: inset 2px 2px 0 rgba(255,255,255,.30), inset -3px -3px 0 rgba(0,0,0,.45);
+    transition:filter .08s;
+  }
+  .mc-btn:hover { filter:brightness(1.2); box-shadow: inset 0 0 0 2px #fff, inset 2px 2px 0 rgba(255,255,255,.30), inset -3px -3px 0 rgba(0,0,0,.45); }
+  .mc-btn:active { box-shadow: inset -2px -2px 0 rgba(255,255,255,.18), inset 3px 3px 0 rgba(0,0,0,.45); }
+  .mc-btn.green { background-color:#4a8a2e; }
+  .mc-btn.blue  { background-color:#2a5a8a; }
+
+  /* liste des mondes */
+  .world {
+    display:flex; align-items:center; gap:10px; padding:11px 13px; margin-bottom:8px;
+    background:rgba(255,255,255,.06); border:2px solid rgba(255,255,255,.1); border-radius:6px;
+    transition:background .12s;
+  }
+  .world:hover { background:rgba(255,255,255,.10); }
+  .world .meta { flex:1; min-width:0; }
+  .world .wn { font-family:'VT323',monospace; font-size:22px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#f0e8d0; }
+  .world .ws { font-size:11px; opacity:.6; margin-top:1px; }
+  .world .actions { display:flex; gap:6px; }
+  .world .actions button {
+    font-family:'VT323',monospace; font-size:19px; padding:5px 12px; cursor:pointer;
+    border:2px solid #000; color:#e8e8e8; text-shadow:1px 1px 0 #1a1a1a; border-radius:0;
+    box-shadow: inset 1px 1px 0 rgba(255,255,255,.25), inset -2px -2px 0 rgba(0,0,0,.4);
+    background:#5a9a3a;
+  }
+  .world .actions button:hover { filter:brightness(1.2); }
+  .world .actions button.exp { background:#2a5a8a; }
+  .world .actions button.del { background:#8a2a2a; }
+
+  .empty { opacity:.6; font-style:italic; padding:8px 2px; font-size:14px; }
+  .import-row { margin-top:12px; }
+  .foot { margin-top:18px; opacity:.5; font-size:12px; text-shadow:1px 1px 0 #0a0a0a; }
+
+  /* appliquer texture pierre aux boutons */
+  button.mc-btn, .world .actions button {
+    background-image: var(--stone, none);
+    background-repeat: repeat; background-size:44px;
     image-rendering: pixelated;
   }
-
-  #ui {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 52px;
-    pointer-events: none;
-  }
-
-  #bubble-logo {
-    position: absolute;
-    top: 14px; left: 16px;
-    font-family: 'Press Start 2P', monospace;
-    font-size: 11px;
-    cursor: pointer;
-    pointer-events: all;
-    text-decoration: none;
-    letter-spacing: 1px;
-    user-select: none;
-    filter: drop-shadow(1px 2px 0 rgba(0,0,0,0.6));
-    transition: transform 0.1s;
-  }
-  #bubble-logo:hover { transform: scale(1.06); }
-  #bubble-logo .l-B  { color: #3a8fff; }
-  #bubble-logo .l-u  { color: #2a7a2a; }
-  #bubble-logo .l-b2 { color: #ffd700; }
-  #bubble-logo .l-b3 { color: #a8e4f0; }
-  #bubble-logo .l-l  { color: #ff6600; }
-  #bubble-logo .l-e  { color: #d0d0d0; }
-  #bubble-logo .l-inc{ color: #111; text-shadow: 0 0 2px #fff; }
-
-  #title-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    animation: titleDrop 0.7s cubic-bezier(0.22,1,0.36,1) both;
-  }
-  @keyframes titleDrop {
-    from { transform: translateY(-60px); opacity:0; }
-    to   { transform: translateY(0);     opacity:1; }
-  }
-  #title {
-    font-family: 'Press Start 2P', monospace;
-    font-size: clamp(28px, 6vw, 72px);
-    color: #fff;
-    text-shadow:
-      4px 4px 0 #2a6e00,
-      8px 8px 0 #1a4400,
-      0 0 40px rgba(100,220,50,0.4),
-      0 0 80px rgba(100,220,50,0.2);
-    letter-spacing: 2px;
-    line-height: 1.2;
-  }
-  #subtitle {
-    font-family: 'Press Start 2P', monospace;
-    font-size: clamp(8px, 1.5vw, 14px);
-    color: #ffd700;
-    text-shadow: 2px 2px 0 #8a6000;
-    letter-spacing: 3px;
-    animation: blink 1.4s step-end infinite;
-  }
-  @keyframes blink {
-    0%, 100% { opacity:1; }
-    50%       { opacity:0; }
-  }
-
-  #btn-wrap {
-    pointer-events: all;
-    animation: fadeUp 0.7s 0.3s cubic-bezier(0.22,1,0.36,1) both;
-  }
-  @keyframes fadeUp {
-    from { transform: translateY(30px); opacity:0; }
-    to   { transform: translateY(0);    opacity:1; }
-  }
-  #start-btn {
-    font-family: 'Press Start 2P', monospace;
-    font-size: clamp(10px, 2vw, 16px);
-    color: #fff;
-    background: #5a9e32;
-    border: none;
-    outline: none;
-    cursor: pointer;
-    padding: 20px 48px;
-    letter-spacing: 2px;
-    box-shadow:
-      inset -4px -4px 0 #2a5c10,
-      inset 4px 4px 0 #8dd44a,
-      0 6px 0 #1a3c08,
-      0 8px 24px rgba(0,0,0,0.5);
-    transition: transform 0.08s, box-shadow 0.08s, background 0.08s;
-  }
-  #start-btn:hover {
-    background: #6bbf3a;
-    box-shadow:
-      inset -4px -4px 0 #2a5c10,
-      inset 4px 4px 0 #a0e855,
-      0 6px 0 #1a3c08,
-      0 10px 32px rgba(90,200,50,0.45);
-    transform: translateY(-3px);
-  }
-  #start-btn:active {
-    transform: translateY(4px);
-    box-shadow:
-      inset -4px -4px 0 #2a5c10,
-      inset 4px 4px 0 #8dd44a,
-      0 2px 0 #1a3c08;
-  }
-
-  #version {
-    position: absolute;
-    bottom: 12px; right: 16px;
-    font-family: 'Press Start 2P', monospace;
-    font-size: 8px;
-    color: rgba(255,255,255,0.3);
-  }
-
-  #btn-wrap {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  #fight-btn {
-    font-family: 'Press Start 2P', monospace;
-    font-size: clamp(8px, 1.4vw, 13px);
-    color: #ff6666;
-    background: #5a0a0a;
-    border: none;
-    outline: none;
-    cursor: pointer;
-    padding: 20px 22px;
-    letter-spacing: 1px;
-    text-decoration: none;
-    display: inline-block;
-    box-shadow:
-      inset -4px -4px 0 #2a0000,
-      inset 4px 4px 0 #aa3333,
-      0 6px 0 #2a0000,
-      0 8px 24px rgba(0,0,0,0.5);
-    transition: transform 0.08s, box-shadow 0.08s, background 0.08s;
-  }
-  #fight-btn:hover {
-    background: #7a1010;
-    box-shadow:
-      inset -4px -4px 0 #2a0000,
-      inset 4px 4px 0 #cc4444,
-      0 6px 0 #2a0000,
-      0 10px 32px rgba(200,50,50,0.45);
-    transform: translateY(-3px);
-  }
-  #fight-btn:active {
-    transform: translateY(4px);
-    box-shadow:
-      inset -4px -4px 0 #2a0000,
-      inset 4px 4px 0 #aa3333,
-      0 2px 0 #2a0000;
-  }
-
-  #world-menu button{
-    font-family:'Press Start 2P', monospace;
-    padding:10px 15px;
-    cursor:pointer;
-    background:#5a9e32;
-    color:white;
-    border:none;
-  }
-
-  #world-menu button:hover{
-    background:#6bbf3a;
-  }
-
-  #seed-input{
-    font-family:'Press Start 2P', monospace;
-  }
-
+  button.mc-btn.green { background-color:#4a8a2e; }
+  button.mc-btn.blue  { background-color:#2a5a8a; }
+  .world .actions button.exp { background-color:#2a5a8a; }
+  .world .actions button.del { background-color:#8a2a2a; }
 </style>
 </head>
 <body>
+<div class="page">
 
-<audio autoplay loop>
-  <source src="bubblecraft_music_accueil_1.mp3" type="audio/mp3">
-</audio>
-
-<canvas id="bg"></canvas>
-
-<a id="bubble-logo" href="https://bubbleinc.example.com" target="_blank">
-  <span class="l-B">B</span><span class="l-u">u</span><span class="l-b2">b</span><span class="l-b3">b</span><span class="l-l">l</span><span class="l-e">e</span>&nbsp;<span class="l-inc">inc.</span>
-</a>
-
-<div id="ui">
-  <div id="title-wrap">
-    <div id="title">BubbleCraft</div>
-    <div id="subtitle">★ EDITION 2D ★</div>
+  <div class="logo">
+    <h1>BlockCraft</h1>
+    <div class="sub">Explore. Construis. Survie.</div>
+    <div class="version">v23 · Three.js · Sans serveur</div>
   </div>
-  <div id="btn-wrap">
-    <button id="start-btn" onclick="startGame()">&#9654; COMMENCER</button>
-    <a id="fight-btn" href="fight_mode.html">⚔️ COMBAT</a>
-  </div>
+
+  <section class="card">
+    <h2>⛏ Nouveau monde</h2>
+    <label><span>Nom du monde</span><input id="name" type="text" maxlength="24" placeholder="Mon monde"></label>
+    <label><span>Graine / seed (laisse vide pour aléatoire)</span><input id="seed" type="text" placeholder="aléatoire"></label>
+    <button class="mc-btn green" id="create">🌍 Créer &amp; jouer</button>
+  </section>
+
+  <section class="card">
+    <h2>🗺 Mes mondes</h2>
+    <div id="list"></div>
+    <input type="file" id="importFile" accept=".blkworld" style="display:none">
+    <div class="import-row">
+      <button class="mc-btn blue" id="importBtn">⬆ Importer un monde (.blkworld)</button>
+    </div>
+  </section>
+
+  <div class="foot">Les mondes sont sauvegardés localement dans ce navigateur.</div>
 </div>
-
-<div id="world-menu" style="
-display:none;
-position:absolute;
-top:50%;
-left:50%;
-transform:translate(-50%,-50%);
-background:#3a2a1a;
-border:4px solid #5a9e32;
-padding:25px;
-border-radius:10px;
-z-index:1000;
-font-family:'Press Start 2P', monospace;
-text-align:center;
-">
-
-<h3 style="color:white;margin-bottom:20px;">
-🌍 MONDES
-</h3>
-
-<button id="new-world-btn">
-Nouveau monde
-</button>
-
-<br><br>
-
-<input
-id="seed-input"
-placeholder="Seed"
-style="
-padding:10px;
-width:200px;
-text-align:center;
-">
-
-<button id="seed-start-btn">
-➜
-</button>
-
-<br><br>
-
-<button id="load-save-btn">
-Ouvrir sauvegarde
-</button>
-
-<input
-type="file"
-id="save-file"
-accept=".bbworld,.bworld,.bcraft,.json"
-style="display:none;"
->
-
-</div>
-
-<div id="version">v1.0</div>
 
 <script>
-const canvas = document.getElementById('bg');
-const ctx    = canvas.getContext('2d');
-let W, H;
+"use strict";
+const REG = 'minicraft_worlds';
+const loadReg  = () => JSON.parse(localStorage.getItem(REG) || '[]');
+const storeReg = w  => localStorage.setItem(REG, JSON.stringify(w));
 
-let seed = 42837;
-function rng() {
-  seed = (seed * 1664525 + 1013904223) & 0xffffffff;
-  return (seed >>> 0) / 0xffffffff;
+// Applique la texture pierre aux boutons si textures.js est chargé
+function applyStoneTexture(){
+  if(!window.TEX||!window.TEX.stone) return;
+  document.documentElement.style.setProperty('--stone','url('+window.TEX.stone+')');
 }
 
-const BS = 28;
-
-// 0=air 1=herbe 2=terre 3=pierre 4=bois 5=feuilles 6=sable 7=pierre sombre 8=pierre claire
-const COLS = {
-  grass:'#5a9e32',   gdark:'#2a5c10',
-  dirt:'#8B5E3C',    ddark:'#5c3a1e',
-  stone:'#808080',   sdark:'#555',
-  wood:'#8B6914',    wdark:'#5c4000',
-  leaves:'#2d7a1e',  ldark:'#1a4a0a',
-  sand:'#e2c97e',    sadark:'#b09040',
-  stone2:'#5c5c5c',  stone2dark:'#3a3a3a',
-  stone3:'#a0a0a0',  stone3dark:'#787878',
-};
-
-let MAP_W, MAP_H, MAP, heights;
-
-function buildWorld() {
-  MAP_W = Math.ceil(W / BS) + 2;
-  MAP_H = Math.ceil(H / BS) + 1;
-  seed  = 42837;
-
-  MAP = Array.from({length:MAP_H}, () => new Uint8Array(MAP_W));
-
-  const sandStart = Math.floor(MAP_W * 2 / 3);
-
-  heights = [];
-  let h = Math.floor(MAP_H * 0.55);
-  for (let x = 0; x < MAP_W; x++) {
-    h += (rng()-0.5)*2;
-    const minH = Math.floor(MAP_H * 0.45);
-    const maxH = Math.floor(MAP_H * 0.65);
-    h = Math.max(minH, Math.min(maxH, h));
-    heights.push(Math.floor(h));
-  }
-
-  for (let x = 0; x < MAP_W; x++) {
-    const s = heights[x];
-    const isSand = x >= sandStart;
-
-    MAP[s][x] = isSand ? 6 : 1;
-    for (let y = s+1; y <= Math.min(s+3, MAP_H-1); y++) MAP[y][x] = 2;
-    for (let y = s+4; y < MAP_H; y++) {
-      const depth = y - s;
-      const r = rng();
-      // 2 variantes de pierre au lieu de minerais
-      if      (depth > 8  && r < 0.12) MAP[y][x] = 7; // pierre sombre
-      else if (depth > 4  && r < 0.10) MAP[y][x] = 8; // pierre claire
-      else                              MAP[y][x] = 3; // pierre normale
-    }
-
-    // Arbres dans la zone herbe
-    if (!isSand && MAP[s][x]===1 && rng()<0.07 && x>3 && x<MAP_W-3) {
-      const th = 3 + Math.floor(rng()*2);
-      for (let t=1; t<=th; t++) setB(x, s-t, 4);
-      for (let lx=-2; lx<=2; lx++)
-        for (let ly=-2; ly<=0; ly++)
-          if (getB(x+lx, s-th+ly)===0) setB(x+lx, s-th+ly, 5);
-    }
-  }
+function parseSeed(str){
+  str=(str||'').trim();
+  if(str==='') return (Math.random()*4294967295)>>>0;
+  if(/^\d+$/.test(str)) return (parseInt(str,10)>>>0);
+  let h=2166136261>>>0;
+  for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619); }
+  return h>>>0;
 }
-
-function getB(x,y){ if(x<0||y<0||x>=MAP_W||y>=MAP_H) return 3; return MAP[y][x]; }
-function setB(x,y,id){ if(x<0||y<0||x>=MAP_W||y>=MAP_H) return; MAP[y][x]=id; }
-
-function drawBlock(sx, sy, type) {
-  let main, dark;
-  if      (type===1){ main=COLS.grass;  dark=COLS.gdark;     }
-  else if (type===2){ main=COLS.dirt;   dark=COLS.ddark;     }
-  else if (type===3){ main=COLS.stone;  dark=COLS.sdark;     }
-  else if (type===4){ main=COLS.wood;   dark=COLS.wdark;     }
-  else if (type===5){ main=COLS.leaves; dark=COLS.ldark;     }
-  else if (type===6){ main=COLS.sand;   dark=COLS.sadark;    }
-  else if (type===7){ main=COLS.stone2; dark=COLS.stone2dark;}
-  else if (type===8){ main=COLS.stone3; dark=COLS.stone3dark;}
-  else return;
-
-  ctx.fillStyle = main;
-  ctx.fillRect(sx, sy, BS, BS);
-  ctx.fillStyle = 'rgba(0,0,0,0.18)';
-  ctx.fillRect(sx, sy+BS-3, BS, 3);
-  ctx.fillRect(sx+BS-3, sy, 3, BS);
-  ctx.fillStyle = 'rgba(255,255,255,0.1)';
-  ctx.fillRect(sx, sy, BS, 3);
-  ctx.fillRect(sx, sy, 3, BS);
+function uniqueName(base,worlds){
+  base=(base||'').trim()||'Monde';
+  let name=base,n=2;
+  while(worlds.some(w=>w.name===name)){ name=base+' '+n; n++; }
+  return name;
 }
+function play(name){ location.href='game.html?w='+encodeURIComponent(name); }
 
-function drawScene() {
-  if (!W || !MAP) return;
-
-  const grad = ctx.createLinearGradient(0,0,0,H);
-  grad.addColorStop(0, '#3a9de0');
-  grad.addColorStop(1, '#c0e8ff');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
-
-  const offY = H - MAP_H * BS;
-  ctx.save();
-  ctx.translate(0, offY);
-
-  for (let y = 0; y < MAP_H; y++)
-    for (let x = 0; x < MAP_W; x++) {
-      const b = MAP[y][x];
-      if (b) drawBlock(x*BS, y*BS, b);
-    }
-
-  // Joueur pixel art
-  const playerX = Math.floor(MAP_W * 0.12);
-  const px = playerX * BS;
-  const py = (heights[playerX] - 1) * BS - 28;
-  ctx.fillStyle = '#f0c080'; ctx.fillRect(px+3, py,    16, 13);
-  ctx.fillStyle = '#333';    ctx.fillRect(px+6, py+4,   3,  3);
-                             ctx.fillRect(px+12,py+4,   3,  3);
-  ctx.fillStyle = '#3a7ad9'; ctx.fillRect(px+1, py+13, 20, 15);
-
-  ctx.restore();
-}
-
-function resize() {
-  W = canvas.width  = window.innerWidth;
-  H = canvas.height = window.innerHeight;
-  buildWorld();
-  drawScene();
-}
-window.addEventListener('resize', resize);
-
-function startGame() {
-  document.getElementById("world-menu").style.display = "block";
-}
-
-function generateNewSeed() {
-  const currentSeed = localStorage.getItem("bubblecraft_seed");
-  let newSeed;
-
-  do {
-    newSeed = Math.floor(10000 + Math.random() * 90000).toString();
-  } while (newSeed === currentSeed);
-
-  return newSeed;
-}
-
-document.getElementById("new-world-btn").onclick = () => {
-
-  const newSeed = generateNewSeed();
-
-  localStorage.setItem(
-    "bubblecraft_seed",
-    newSeed
-  );
-
-  localStorage.removeItem("bubblecraft_save");
-
-  window.location.href = "world.html";
-};
-
-document.getElementById("seed-start-btn").onclick = () => {
-
-  const seed =
-    document.getElementById("seed-input").value.trim();
-
-  localStorage.setItem(
-    "bubblecraft_seed",
-    seed || Math.floor(10000 + Math.random() * 90000).toString()
-  );
-
-  localStorage.removeItem("bubblecraft_save");
-
-  window.location.href = "world.html";
-};
-
-document.getElementById("load-save-btn").onclick = () => {
-  document.getElementById("save-file").click();
-};
-
-document.getElementById("save-file").addEventListener("change",(e)=>{
-
-  const file = e.target.files[0];
-
-  if(!file) return;
-
-  const reader = new FileReader();
-
-  reader.onload = () => {
-    let save;
-
-    try {
-      save = JSON.parse(reader.result);
-    } catch {
-      alert("Sauvegarde BubbleCraft invalide.");
-      e.target.value = "";
-      return;
-    }
-
-    if(
-      !save ||
-      !Array.isArray(save.world) ||
-      save.world.length !== 60 ||
-      !save.world.every(row => Array.isArray(row) && row.length === 300) ||
-      !save.player
-    ) {
-      alert("Sauvegarde BubbleCraft invalide.");
-      e.target.value = "";
-      return;
-    }
-
-    localStorage.setItem(
-      "bubblecraft_save",
-      reader.result
-    );
-
-    if(save.seed) {
-      localStorage.setItem(
-        "bubblecraft_seed",
-        String(save.seed)
-      );
-    }
-
-    window.location.href = "world.html";
-  };
-
-  reader.readAsText(file);
+document.getElementById('create').addEventListener('click',()=>{
+  const worlds=loadReg();
+  const name=uniqueName(document.getElementById('name').value,worlds);
+  const seed=parseSeed(document.getElementById('seed').value);
+  worlds.push({name,seed,created:Date.now()});
+  storeReg(worlds);
+  play(name);
 });
 
-resize();
+document.getElementById('name').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('create').click(); });
+
+function del(name){
+  if(!confirm('Supprimer le monde « '+name+' » ? Irréversible.')) return;
+  storeReg(loadReg().filter(w=>w.name!==name));
+  localStorage.removeItem('minicraft_save_'+name);
+  render();
+}
+function exportWorld(w){
+  const sv=localStorage.getItem('minicraft_save_'+w.name);
+  const data={format:'blkworld',version:1,name:w.name,seed:w.seed,save:sv?JSON.parse(sv):{}};
+  const blob=new Blob([JSON.stringify(data)],{type:'application/octet-stream'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=(w.name.replace(/[^\w\-]+/g,'_')||'monde')+'.blkworld';
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+}
+document.getElementById('importBtn').onclick=()=>document.getElementById('importFile').click();
+document.getElementById('importFile').onchange=(e)=>{
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const data=JSON.parse(reader.result);
+      if(data.format!=='blkworld') throw new Error('format');
+      const worlds=loadReg();
+      const name=uniqueName(data.name||'Monde importé',worlds);
+      worlds.push({name,seed:(data.seed>>>0),created:Date.now()});
+      storeReg(worlds);
+      if(data.save) localStorage.setItem('minicraft_save_'+name,JSON.stringify(data.save));
+      render();
+      alert('Monde « '+name+' » importé !');
+    }catch(err){ alert('Fichier .blkworld invalide.'); }
+    e.target.value='';
+  };
+  reader.readAsText(file);
+};
+
+function timeAgo(ts){
+  if(!ts) return '';
+  const d=Date.now()-ts;
+  if(d<60000) return 'à l\'instant';
+  if(d<3600000) return Math.floor(d/60000)+'min';
+  if(d<86400000) return Math.floor(d/3600000)+'h';
+  return Math.floor(d/86400000)+'j';
+}
+
+function render(){
+  const list=document.getElementById('list');
+  const worlds=loadReg().sort((a,b)=>(b.created||0)-(a.created||0));
+  list.innerHTML='';
+  if(!worlds.length){
+    list.innerHTML='<div class="empty">Aucun monde — crée ton premier ci-dessus !</div>';
+    return;
+  }
+  for(const w of worlds){
+    const row=document.createElement('div'); row.className='world';
+    const meta=document.createElement('div'); meta.className='meta';
+    meta.innerHTML='<div class="wn">'+w.name+'</div><div class="ws">graine : '+w.seed+(w.created?' · '+timeAgo(w.created):'')+'</div>';
+    const acts=document.createElement('div'); acts.className='actions';
+    const pb=document.createElement('button'); pb.textContent='▶ Jouer'; pb.onclick=()=>play(w.name);
+    const eb=document.createElement('button'); eb.className='exp'; eb.textContent='⬇'; eb.title='Exporter'; eb.onclick=()=>exportWorld(w);
+    const db=document.createElement('button'); db.className='del'; db.textContent='🗑'; db.title='Supprimer'; db.onclick=()=>del(w.name);
+    acts.appendChild(pb); acts.appendChild(eb); acts.appendChild(db);
+    row.appendChild(meta); row.appendChild(acts);
+    list.appendChild(row);
+  }
+}
+
+// Charger textures.js pour la texture pierre
+const txScript=document.createElement('script'); txScript.src='textures.js';
+txScript.onload=applyStoneTexture; document.head.appendChild(txScript);
+render();
 </script>
 </body>
 </html>
