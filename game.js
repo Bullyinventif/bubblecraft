@@ -41,7 +41,7 @@ function isSolid(id){ if(id===AIR) return false; const b=BLOCKS[id]; if(!b||b.fl
 // ---------- Atlas de textures ----------
 // Construit dynamiquement depuis TILE_FILES (défini par blocks.js d'après les noms de fichiers).
 // Chaque tuile est remplie par son PNG (window.TEX base64, sinon assets/<nom>.png).
-const TILE=16, ATLAS_TILES=window.ATLAS_TILES||8, ATLAS_PX=TILE*ATLAS_TILES;
+const TILE=32, ATLAS_TILES=window.ATLAS_TILES||8, ATLAS_PX=TILE*ATLAS_TILES;   // textures 32×32 (v30)
 const atlas=document.createElement('canvas'); atlas.width=atlas.height=ATLAS_PX;
 const actx=atlas.getContext('2d');
 actx.fillStyle='#c026c0'; actx.fillRect(0,0,ATLAS_PX,ATLAS_PX);   // magenta = texture manquante (le temps du chargement)
@@ -132,6 +132,8 @@ scene.add(sunLight); scene.add(sunLight.target);
 const highlight=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1.001,1.001,1.001)),new THREE.LineBasicMaterial({color:0x000000,transparent:true,opacity:0.4}));
 highlight.visible=false; scene.add(highlight);
 const breakBox=new THREE.Mesh(new THREE.BoxGeometry(1.003,1.003,1.003),crackMats[0]); breakBox.visible=false; breakBox.renderOrder=2; scene.add(breakBox);
+// boîte de sélection de structure (outil de capture)
+const selBox=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1,1,1)),new THREE.LineBasicMaterial({color:0x3dff72})); selBox.visible=false; scene.add(selBox);
 
 // ---------- Ciel : soleil, lune, nuages + objet tenu ----------
 scene.add(camera);   // pour afficher l'objet en main (enfant de la caméra)
@@ -304,14 +306,44 @@ function buildVillageHouse(blocks,lx,gy,lz,wx,wz){ const W=6,Dp=6;
 }
 function spawnVillagerNear(wx,wy,wz){ if(mobs.reduce((n,m)=>n+(m.type==='villager'?1:0),0)>=12) return;
   if(Math.hypot(wx-player.pos.x,wz-player.pos.z)>R*CHUNK+10) return; spawnMob(wx+0.5,wy,wz+0.5,'villager'); }
+// ── Blueprints (structures.js) : résolution en tableau d'ids + placement multi-chunks ──
+function resolveBlueprint(bp){ if(bp._ids) return bp;
+  const idOf=(window.GameData&&window.GameData.idOf)||{}, S=window.Structures, leg=bp.legend||S.legend||{};
+  const toId=s=>(s==null||s==='air')?0:(idOf[s]!=null?idOf[s]:0);
+  let w,h,d,ids;
+  if(bp.layers){ h=bp.layers.length; d=bp.layers[0].length; w=bp.layers[0][0].length; ids=new Uint8Array(w*h*d);
+    for(let y=0;y<h;y++) for(let z=0;z<d;z++){ const row=bp.layers[y][z]||''; for(let x=0;x<w;x++){ const ch=row[x]||'.'; ids[x+w*(z+d*y)]=toId(leg[ch]); } } }
+  else if(bp.palette){ w=bp.size[0]; h=bp.size[1]; d=bp.size[2]; const pal=bp.palette.map(toId); ids=new Uint8Array(w*h*d);
+    if(bp.rle){ let p=0; for(let i=0;i<bp.rle.length;i+=2){ const cnt=bp.rle[i],pi=bp.rle[i+1]; for(let k=0;k<cnt;k++) ids[p++]=pal[pi]; } }
+    else for(let i=0;i<bp.data.length;i++) ids[i]=pal[bp.data[i]]; }
+  else return null;
+  bp._ids=ids; bp._w=w; bp._h=h; bp._d=d; return bp; }
+function placeStructuresInChunk(cx,cz,blocks){ const S=window.Structures; if(!S||!S.spawns) return;
+  const wx0=cx*CHUNK,wz0=cz*CHUNK,wx1=wx0+CHUNK-1,wz1=wz0+CHUNK-1;
+  for(let ri=0;ri<S.spawns.length;ri++){ const rule=S.spawns[ri],bp=S.blueprints&&S.blueprints[rule.blueprint]; if(!bp) continue;
+    const r=resolveBlueprint(bp); if(!r) continue; const w=r._w,h=r._h,d=r._d,ids=r._ids,sp=rule.spacing||Math.max(w,d)+8,seed=1000+ri*777;
+    const ai0=Math.floor((wx0-w)/sp),ai1=Math.floor(wx1/sp),aj0=Math.floor((wz0-d)/sp),aj1=Math.floor(wz1/sp);
+    for(let ai=ai0;ai<=ai1;ai++) for(let aj=aj0;aj<=aj1;aj++){
+      if(hash2(ai*7919+seed,aj*104729+seed) > (rule.chance!=null?rule.chance:0.5)) continue;
+      const ox=ai*sp+Math.floor(hash2(ai*13+seed,aj*29+seed)*Math.max(1,sp-w)),oz=aj*sp+Math.floor(hash2(ai*31+seed,aj*17+seed)*Math.max(1,sp-d));
+      const cxw=ox+(w>>1),czw=oz+(d>>1),gy=heightAt(cxw,czw); if(gy<=SEA+1) continue;
+      if(rule.biomes && rule.biomes.indexOf(biomeAt(cxw,czw))<0) continue;
+      const fl=rule.flatness!=null?rule.flatness:2;
+      if(Math.abs(heightAt(ox,oz)-gy)>fl||Math.abs(heightAt(ox+w-1,oz)-gy)>fl||Math.abs(heightAt(ox,oz+d-1)-gy)>fl||Math.abs(heightAt(ox+w-1,oz+d-1)-gy)>fl) continue;
+      const baseY=gy+(rule.baseY||0);
+      for(let by=0;by<h;by++){ const wy=baseY+by; if(wy<1||wy>=HEIGHT) continue;
+        for(let bz=0;bz<d;bz++){ const wz=oz+bz; if(wz<wz0||wz>wz1) continue;
+          for(let bx=0;bx<w;bx++){ const wx=ox+bx; if(wx<wx0||wx>wx1) continue; const id=ids[bx+w*(bz+d*by)]; if(id!==0) blocks[vidx(wx-wx0,wy,wz-wz0)]=id; } } }
+      if(rule.villagers && ox>=wx0&&ox<=wx1&&oz>=wz0&&oz<=wz1){ for(let v=0;v<rule.villagers;v++) _villagerSpawns.push([ox+(w>>1),baseY+1,oz+(d>>1)]); }
+    }
+  }
+}
 function buildStructures(blocks,cx,cz){
   const wx0=cx*CHUNK,wz0=cz*CHUNK;
-  if(hash2(cx*131+7,cz*131+13)<0.04){ const lx=2+((hash2(cx,cz)*6)|0),lz=2+((hash2(cz,cx)*6)|0),wx=wx0+lx,wz=wz0+lz,bi=biomeAt(wx,wz),h=heightAt(wx,wz);
-    if((bi==='plains'||bi==='forest')&&h>SEA+1) buildHut(blocks,lx,h,lz); }
   if(hash2(cx*271+91,cz*271+37)<0.05){ const lx=2+((hash2(cx+5,cz)*6)|0),lz=2+((hash2(cz+5,cx)*6)|0),dy=6+((hash2(cx,cz+9)*10)|0); buildDungeon(blocks,lx,dy,lz); }
-  if(hash2(cx*373+3,cz*373+19)<0.04){ const lx=2+((hash2(cx+2,cz+2)*8)|0),lz=2+((hash2(cz+2,cx+2)*7)|0),wx=wx0+lx,wz=wz0+lz; if(heightAt(wx,wz)<SEA-1) buildBoat(blocks,lx,SEA+1,lz); }
   if(hash2(cx*523+17,cz*523+41)<0.022){ const lx=4,lz=4,wx=wx0+lx,wz=wz0+lz,bi=biomeAt(wx,wz),h=heightAt(wx,wz);
     if((bi==='plains'||bi==='forest')&&h>SEA+1&&Math.abs(heightAt(wx+5,wz+5)-h)<=2&&Math.abs(heightAt(wx,wz+5)-h)<=2&&Math.abs(heightAt(wx+5,wz)-h)<=2) buildVillageHouse(blocks,lx,h,lz,wx,wz); }
+  placeStructuresInChunk(cx,cz,blocks);   // bâtiments définis dans structures.js
 }
 function genChunk(cx,cz){
   const blocks=new Uint8Array(CHUNK*CHUNK*HEIGHT);
@@ -773,7 +805,7 @@ function breakBlock(x,y,z,id){ digSound(id); spawnParticles(x+0.5,y+0.5,z+0.5,id
   if(id===CHEST){ const k=x+','+y+','+z,arr=chests[k]; if(arr){ for(const s of arr) if(s) spawnItem(x+0.5,y+0.6,z+0.5,s.id,s.count); delete chests[k]; } }
   if(mode!=='creative'&&id!==WATER&&id!==BEDROCK) spawnItem(x+0.5,y+0.55,z+0.5,dropOf(id)); editBlock(x,y,z,AIR);
   if(isDoor(id)){ if(isDoor(getBlock(x,y+1,z))) editBlock(x,y+1,z,AIR); else if(isDoor(getBlock(x,y-1,z))) editBlock(x,y-1,z,AIR); } }
-function consumeHeld(){ if(mode!=='creative'){ const slot=inv[selected]; slot.count--; if(slot.count<=0) inv[selected]=null; } renderHotbar(); }
+function consumeHeld(){ if(mode!=='creative'){ const slot=inv[selected]; slot.count--; BubbleQuest.score(slot.count); if(slot.count<=0) inv[selected]=null; } renderHotbar(); }
 function tryPlace(){ const slot=inv[selected]; if(!slot||slot.count<=0) return; if(BLOCKS[slot.id].item) return;
   const hit=raycast(); if(!hit) return; const px=hit.x+hit.nx,py=hit.y+hit.ny,pz=hit.z+hit.nz,cur=getBlock(px,py,pz),pid=slot.id;
   // porte : deux blocs de haut, sur un sol solide
@@ -794,6 +826,7 @@ addEventListener('keydown',e=>{
   if(invOpen){ if(e.code==='Escape') closeInv(); return; }
   if(document.pointerLockElement!==canvas) return;
   keys[e.code]=true; if(e.code==='KeyF'){ setMode(mode==='creative'?'survival':'creative'); }
+  if(e.code==='KeyB'){ markStructCorner(); } if(e.code==='KeyN'){ exportStructure(); } if(e.code==='KeyV'){ selA=null; selB=null; updateSelBox(); toast('Sélection effacée'); }
   if(e.code.startsWith('Digit')){ const n=+e.code.slice(5); if(n>=1&&n<=9) selectSlot(n-1); }
 });
 addEventListener('keyup',e=>{ keys[e.code]=false; });
@@ -801,8 +834,13 @@ document.addEventListener('pointerlockchange',()=>{ const playing=document.point
   if(playing){ overlay.classList.add('hidden'); } else { for(const k in keys) keys[k]=false; mouseLeft=false; mouseRight=false; mining.key=null; breakBox.visible=false; saveNow(); if(!invOpen&&!player.dead){ overlay.classList.remove('hidden'); refreshPauseInfo(); } } });
 addEventListener('mousemove',e=>{ if(invOpen){ lastMouse.x=e.clientX; lastMouse.y=e.clientY; if(cursor){ cursorEl.style.left=(e.clientX-22)+'px'; cursorEl.style.top=(e.clientY-22)+'px'; } return; }
   if(document.pointerLockElement!==canvas) return; player.yaw-=e.movementX*mouseSens; player.pitch-=e.movementY*mouseSens; player.pitch=Math.max(-1.55,Math.min(1.55,player.pitch)); });
+function pickBlock(){ const hit=raycast(); if(!hit) return; const id=getBlock(hit.x,hit.y,hit.z); if(id===AIR||id===WATER) return; if(!BLOCKS[id]) return;
+  if(mode==='creative'){ inv[selected]={id,count:maxStackOf(id)}; renderHotbar(); return; }
+  for(let i=0;i<9;i++){ if(inv[i]&&inv[i].id===id){ selectSlot(i); return; } }
+  for(let i=0;i<storage.length;i++){ const s=storage[i]; if(s&&s.id===id){ const cur=inv[selected]; inv[selected]=s; storage[i]=cur||null; renderHotbar(); return; } } }
 addEventListener('mousedown',e=>{ if(document.pointerLockElement!==canvas) return; if(mode==='spectator') return;
   if(e.button===0){ const m=mobTarget(); if(m){ hitMob(m); heldSwing=1; } else mouseLeft=true; }
+  else if(e.button===1){ e.preventDefault(); pickBlock(); }
   else if(e.button===2){ mouseRight=true; const hit=raycast(); if(hit){ const use=BLOCKS[getBlock(hit.x,hit.y,hit.z)]; if(use&&use.onUse){
       if(use.onUse==='table'){ openInv(true); return; } if(use.onUse==='furnace'){ openFurnace(); return; }
       if(use.onUse==='chest'){ openChest(hit.x+','+hit.y+','+hit.z); return; } if(use.onUse==='door'){ toggleDoor(hit.x,hit.y,hit.z); return; } } } tryPlace(); } });
@@ -813,14 +851,39 @@ addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.upd
 
 // ---------- Raycasting ----------
 const _dir=new THREE.Vector3();
-function raycast(){ const o=camera.position; camera.getWorldDirection(_dir); const d=_dir;
+function raycast(max){ const o=camera.position; camera.getWorldDirection(_dir); const d=_dir;
   let x=Math.floor(o.x),y=Math.floor(o.y),z=Math.floor(o.z); const sx=d.x>0?1:-1,sy=d.y>0?1:-1,sz=d.z>0?1:-1;
   const tdx=Math.abs(1/d.x),tdy=Math.abs(1/d.y),tdz=Math.abs(1/d.z);
   let tx=d.x===0?Infinity:tdx*(d.x>0?(x+1-o.x):(o.x-x)),ty=d.y===0?Infinity:tdy*(d.y>0?(y+1-o.y):(o.y-y)),tz=d.z===0?Infinity:tdz*(d.z>0?(z+1-o.z):(o.z-z));
-  let nx=0,ny=0,nz=0; const MAX=6;
-  for(let i=0;i<80;i++){ const id=getBlock(x,y,z); if(id!==AIR&&id!==WATER) return {x,y,z,nx,ny,nz};
+  let nx=0,ny=0,nz=0; const MAX=max||6;
+  for(let i=0;i<200;i++){ const id=getBlock(x,y,z); if(id!==AIR&&id!==WATER) return {x,y,z,nx,ny,nz};
     if(tx<ty&&tx<tz){ if(tx>MAX)break; x+=sx; tx+=tdx; nx=-sx;ny=0;nz=0; } else if(ty<tz){ if(ty>MAX)break; y+=sy; ty+=tdy; nx=0;ny=-sy;nz=0; } else { if(tz>MAX)break; z+=sz; tz+=tdz; nx=0;ny=0;nz=-sz; } }
   return null; }
+
+// ---------- Outil de capture de structures ----------
+let selA=null, selB=null, _toastT=null, _id2slug=null;
+function toast(msg){ const el=document.getElementById('toast'); if(!el) return; el.textContent=msg; el.style.opacity='1'; if(_toastT) clearTimeout(_toastT); _toastT=setTimeout(()=>{ el.style.opacity='0'; },2400); }
+function id2slug(){ if(_id2slug) return _id2slug; _id2slug={}; const idOf=(window.GameData&&window.GameData.idOf)||{}; for(const s in idOf) _id2slug[idOf[s]]=s; return _id2slug; }
+function updateStructHint(){ const el=document.getElementById('structHint'); if(!el) return; if(!selA){ el.style.display='none'; return; }
+  const b=selB||selA,w=Math.abs(selA.x-b.x)+1,h=Math.abs(selA.y-b.y)+1,d=Math.abs(selA.z-b.z)+1;
+  el.style.display='block'; el.textContent='🔲 Sélection '+w+'×'+h+'×'+d+(selB?'   ·   [N] exporter   [V] effacer':'   ·   vise le 2ᵉ coin puis [B]'); }
+function updateSelBox(){ if(!selA){ selBox.visible=false; updateStructHint(); return; }
+  const b=selB||selA,x0=Math.min(selA.x,b.x),x1=Math.max(selA.x,b.x),y0=Math.min(selA.y,b.y),y1=Math.max(selA.y,b.y),z0=Math.min(selA.z,b.z),z1=Math.max(selA.z,b.z);
+  const w=x1-x0+1,h=y1-y0+1,d=z1-z0+1; selBox.scale.set(w+0.02,h+0.02,d+0.02); selBox.position.set(x0+w/2,y0+h/2,z0+d/2); selBox.visible=true; updateStructHint(); }
+function markStructCorner(){ const hit=raycast(96); if(!hit){ toast('Vise un bloc pour marquer un coin'); return; }
+  const p={x:hit.x,y:hit.y,z:hit.z};
+  if(!selA){ selA=p; toast('Coin 1 marqué'); } else if(!selB){ selB=p; toast('Coin 2 marqué — [N] pour exporter'); } else { selA=p; selB=null; toast('Nouvelle sélection — coin 1'); }
+  updateSelBox(); }
+function exportStructure(){ if(!selA||!selB){ toast('Marque 2 coins avec [B] d\'abord'); return; }
+  const x0=Math.min(selA.x,selB.x),x1=Math.max(selA.x,selB.x),y0=Math.min(selA.y,selB.y),y1=Math.max(selA.y,selB.y),z0=Math.min(selA.z,selB.z),z1=Math.max(selA.z,selB.z);
+  const w=x1-x0+1,h=y1-y0+1,d=z1-z0+1,i2s=id2slug(),palette=['air'],palIdx={0:0},flat=new Array(w*h*d);
+  for(let y=0;y<h;y++) for(let z=0;z<d;z++) for(let x=0;x<w;x++){ let id=getBlock(x0+x,y0+y,z0+z); if(id===DOOR_OPEN) id=DOOR;
+    let pi=palIdx[id]; if(pi==null){ pi=palette.length; palette.push(i2s[id]||'air'); palIdx[id]=pi; } flat[x+w*(z+d*y)]=pi; }
+  const rle=[]; let run=1; for(let i=1;i<=flat.length;i++){ if(i<flat.length && flat[i]===flat[i-1]) run++; else { rle.push(run,flat[i-1]); run=1; } }
+  const json=JSON.stringify({format:'blkstruct',version:1,name:'ma_structure',size:[w,h,d],palette,rle});
+  try{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([json],{type:'application/json'})); a.download='ma_structure.blkstruct'; a.click(); URL.revokeObjectURL(a.href); }catch(e){}
+  try{ navigator.clipboard.writeText(json); }catch(e){}
+  toast('✅ Structure '+w+'×'+h+'×'+d+' exportée (copiée + téléchargée)'); }
 
 // ---------- Jour/nuit ----------
 let dayTime=(save.dayTime!=null)?save.dayTime:0.30; const DAY_LEN=180; let _skyT=0;
@@ -831,7 +894,7 @@ function updateSky(dt){ _skyT+=dt; dayTime=(dayTime+dt/DAY_LEN)%1;
   // teinte de la lumière du ciel : nuit (bleu) → jour (blanc chaud), orangée au crépuscule
   _skl.copy(C_LIGHT_NIGHT).lerp(C_LIGHT_DAY,day); if(horizon>0) _skl.lerp(C_LIGHT_DUSK,horizon*0.5); lightU.uSkyColor.value.copy(_skl);
   // torches : chaudes + léger scintillement
-  const fl=0.93+0.05*Math.sin(_skyT*7.0)+0.025*Math.sin(_skyT*13.0); lightU.uBlockColor.value.setRGB(fl,0.72*fl,0.40*fl);
+  lightU.uBlockColor.value.setRGB(1.0,0.74,0.43);   // lumière de bloc chaude, stable (plus de scintillement global)
   const dl=0.30+0.70*day; decoMat.color.setScalar(dl); doorMat.color.setScalar(dl);   // déco (plantes/échelles/portes) suit le jour/nuit
   // fond + brouillard
   scene.background.copy(SKY_NIGHT).lerp(SKY_DAY,day); if(horizon>0) scene.background.lerp(SUNSET,horizon*0.5);
