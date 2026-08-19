@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bubble Game</title>
+  <title>Jeux | Bubble Game</title>
   <link rel="icon" type="image/png" href="../bully_icon_site_1.png">
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Archivo+Black&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css?v=5">
@@ -13,8 +13,8 @@
     <a href="./index.html" class="nav-logo">🫧</a>
     <div class="brand">BUBBLE GAME</div>
     <div class="nav-links">
-      <a href="./index.html" class="active">Accueil</a>
-      <a href="./jeux.html">Jeux</a>
+      <a href="./index.html">Accueil</a>
+      <a href="./jeux.html" class="active">Jeux</a>
       <a href="./classement.html">Classement</a>
       <a href="./credits.html">Crédits</a>
     </div>
@@ -37,11 +37,17 @@
   </div>
 
   <div class="wrap">
-    <div class="hero" id="hero"></div>
+    <div class="rowhead"><h2>TOUS LES JEUX</h2></div>
 
-    <div class="rowhead">
-      <h2>AJOUTS RÉCENTS</h2>
-      <a class="btn small" href="./jeux.html">VOIR TOUT →</a>
+    <div class="tools">
+      <div class="search">
+        <input id="search" type="text" placeholder="🔍 Rechercher un jeu…" aria-label="Rechercher un jeu">
+      </div>
+      <div class="chips">
+        <button class="chip active" data-f="all">Tous</button>
+        <button class="chip" data-f="new">Nouveaux</button>
+        <button class="chip" data-f="popular">Populaires</button>
+      </div>
     </div>
 
     <div class="grid" id="grid"></div>
@@ -58,9 +64,34 @@
   <script>
     requireAccess();
     initChrome();
-    var recent = gamesByRecent();
-    document.getElementById('hero').innerHTML = heroMarkup(recent[0]);
-    document.getElementById('grid').innerHTML = recent.slice(0, 3).map(gameCard).join('');
+
+    var grid = document.getElementById('grid');
+    var search = document.getElementById('search');
+    var filter = 'all';
+
+    function renderGames() {
+      var q = search.value.toLowerCase().trim();
+      var list = gamesByRecent().filter(function (g) {
+        if (q && !g.name.toLowerCase().includes(q)) return false;
+        if (filter === 'new') return isNew(g);
+        if (filter === 'popular') return isPopular(g);
+        return true;
+      });
+      grid.innerHTML = list.length
+        ? list.map(gameCard).join('')
+        : '<div class="empty">Aucun jeu trouvé…</div>';
+    }
+
+    document.querySelectorAll('.chip').forEach(function (c) {
+      c.addEventListener('click', function () {
+        document.querySelectorAll('.chip').forEach(function (x) { x.classList.remove('active'); });
+        c.classList.add('active');
+        filter = c.dataset.f;
+        renderGames();
+      });
+    });
+    search.addEventListener('input', renderGames);
+    renderGames();
   </script>
 </body>
 </html>
